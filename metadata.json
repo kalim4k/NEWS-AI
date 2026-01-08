@@ -1,0 +1,5 @@
+{
+  "name": "NEWS AI",
+  "description": "Une plateforme MVP moderne pour créer et gérer des blogs d'actualités AI. Inclut un tableau de bord analytique, la gestion des articles/pages et une vue publique du blog.",
+  "requestFramePermissions": []
+}
