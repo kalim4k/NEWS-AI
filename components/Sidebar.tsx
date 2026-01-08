@@ -38,11 +38,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, onV
       <div className={`
         fixed top-0 left-0 h-full bg-white border-r border-gray-200 z-50 w-64 transform transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none
         ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
-        md:translate-x-0 md:z-10
+        md:translate-x-0 md:z-10 flex flex-col
       `}>
-        <div className="p-6 flex items-center justify-between border-b border-gray-100 h-20">
+        <div className="p-6 flex items-center justify-between border-b border-gray-100 h-20 shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-200">
               <Zap className="text-white w-5 h-5 fill-current" />
             </div>
             <span className="text-xl font-black tracking-tight text-slate-900">NEWS AI</span>
@@ -86,9 +86,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, onV
         </nav>
 
         {/* User / Logout Section */}
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
+        <div className="p-4 border-t border-gray-200 bg-gray-50 shrink-0">
+          <div className="flex items-center gap-3 mb-3 px-2">
+            <div className="relative">
+              <img 
+                src="https://ui-avatars.com/api/?name=Admin+User&background=4f46e5&color=fff&bold=true" 
+                className="w-9 h-9 rounded-full ring-2 ring-white shadow-sm" 
+                alt="Admin" 
+              />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></span>
+            </div>
+            <div className="flex-1 min-w-0">
+               <p className="text-sm font-bold text-slate-700 truncate">Admin User</p>
+               <p className="text-xs text-slate-400 truncate">admin@newsai.com</p>
+            </div>
+          </div>
           <button 
-            className="w-full flex items-center space-x-3 px-4 py-2 rounded-lg text-slate-500 hover:text-red-600 transition-colors group"
+            className="w-full flex items-center space-x-3 px-4 py-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors group"
             onClick={() => alert("Déconnexion...")}
           >
             <LogOut size={18} className="group-hover:text-red-600" />
