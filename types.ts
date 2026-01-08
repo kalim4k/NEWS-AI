@@ -46,6 +46,7 @@ export interface LayoutConfig {
   // Ad Codes (HTML)
   adCodeHeader: string;
   adCodeSidebar: string;
+  adCodeSidebarBottom: string; // New field replacing newsletter
   adCodeArticleTop: string;
   adCodeArticleBottom: string;
 }

@@ -1,3 +1,4 @@
+
 import React, { useRef } from 'react';
 import { BlogSettings, Page } from '../types';
 import { Upload, X, Layout, Type, DollarSign, Menu as MenuIcon, Save } from 'lucide-react';
@@ -188,13 +189,23 @@ export const LayoutEditor: React.FC<LayoutEditorProps> = ({ settings, pages, onU
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Barre Latérale (Sidebar) - 300x250</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Barre Latérale (Haut) - 300x250</label>
             <textarea 
               rows={3}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg font-mono text-xs bg-gray-50 focus:bg-white focus:outline-none focus:border-indigo-500"
-              placeholder="<!-- Code pub sidebar -->"
+              placeholder="<!-- Code pub sidebar haut -->"
               value={settings.layout.adCodeSidebar}
               onChange={(e) => onUpdate({...settings, layout: {...settings.layout, adCodeSidebar: e.target.value}})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Barre Latérale (Bas) - Remplace Newsletter</label>
+            <textarea 
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg font-mono text-xs bg-gray-50 focus:bg-white focus:outline-none focus:border-indigo-500"
+              placeholder="<!-- Code pub sidebar bas -->"
+              value={settings.layout.adCodeSidebarBottom}
+              onChange={(e) => onUpdate({...settings, layout: {...settings.layout, adCodeSidebarBottom: e.target.value}})}
             />
           </div>
           <div>

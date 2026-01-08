@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Post, BlogSettings, Page, Comment } from '../types';
 import { ArrowLeft, Search, Menu, X, Facebook, Twitter, Linkedin, Calendar, User, MessageCircle, Clock, ChevronLeft, ChevronRight, Send } from 'lucide-react';
@@ -155,7 +156,7 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
 
             {/* Sidebar */}
             <aside className="md:col-span-4 space-y-8">
-               {/* Sidebar Ad (Top) */}
+               {/* Sidebar Ad Top */}
                <AdSpace code={settings.layout.adCodeSidebar} />
                
                <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
@@ -170,8 +171,8 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
                   </div>
                </div>
 
-               {/* Replaced Newsletter with AdSpace */}
-               <AdSpace code={settings.layout.adCodeSidebar} label="Publicité" />
+               {/* Sidebar Ad Bottom (Replacing Newsletter) */}
+               <AdSpace code={settings.layout.adCodeSidebarBottom} />
             </aside>
           </div>
         </div>
@@ -353,7 +354,6 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
 
       {/* Header */}
       <header className="bg-white sticky top-0 z-40 border-b border-gray-200 shadow-sm/50">
-        
         {/* Main Nav */}
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
           {/* Logo */}
@@ -420,7 +420,7 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-300 mt-20 pt-16 pb-8 border-t border-indigo-500">
          <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
-            <div className="col-span-1">
+            <div className="col-span-1 md:col-span-1">
                <h3 className="text-white text-xl font-black font-serif mb-6">{settings.name}</h3>
                <p className="text-slate-400 text-sm leading-relaxed mb-6">{settings.description}</p>
                <div className="flex space-x-4">

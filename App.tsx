@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -48,6 +49,7 @@ const INITIAL_SETTINGS: BlogSettings = {
     footerMenu: ['contact', 'about'],
     adCodeHeader: "",
     adCodeSidebar: "",
+    adCodeSidebarBottom: "",
     adCodeArticleTop: "",
     adCodeArticleBottom: ""
   }
