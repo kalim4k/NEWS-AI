@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Post, BlogSettings, Page, Comment } from '../types';
-import { ArrowLeft, Search, Menu, X, Facebook, Twitter, Linkedin, Calendar, User, MessageCircle, Clock, ChevronLeft, ChevronRight, Send } from 'lucide-react';
+import { ArrowLeft, Search, Menu, X, Facebook, Twitter, Linkedin, Calendar, User, MessageCircle, Clock, ChevronLeft, ChevronRight, Send, Trash2, AlertTriangle } from 'lucide-react';
 
 interface PublicBlogProps {
   settings: BlogSettings;
@@ -28,6 +28,7 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [commentInput, setCommentInput] = useState('');
   const [comments, setComments] = useState<Comment[]>(MOCK_COMMENTS);
+  const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
 
   // Reset scroll on view change
   useEffect(() => window.scrollTo(0, 0), [viewState]);
@@ -70,6 +71,13 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
     };
     setComments([newComment, ...comments]);
     setCommentInput('');
+  };
+
+  const confirmDeleteComment = () => {
+    if (commentToDelete) {
+      setComments(comments.filter(c => c.id !== commentToDelete));
+      setCommentToDelete(null);
+    }
   };
 
   const renderPagination = (currentPage: number, totalItems: number, type: 'home' | 'category', category?: string) => {
@@ -282,7 +290,12 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
                     <div className="flex-1">
                        <div className="flex items-baseline justify-between mb-1">
                           <h4 className="font-bold text-slate-900">{comment.author}</h4>
-                          <span className="text-xs text-slate-500">{comment.date}</span>
+                          <div className="flex items-center space-x-3">
+                             <span className="text-xs text-slate-500">{comment.date}</span>
+                             <button onClick={() => setCommentToDelete(comment.id)} className="text-slate-400 hover:text-red-500 transition-colors" title="Supprimer">
+                               <Trash2 size={14} />
+                             </button>
+                          </div>
                        </div>
                        <p className="text-slate-600 leading-relaxed bg-white p-4 rounded-lg border border-gray-100 shadow-sm">{comment.content}</p>
                     </div>
@@ -345,8 +358,42 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
   };
 
   return (
-    <div className="min-h-screen bg-white font-sans flex flex-col selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen bg-white font-sans flex flex-col selection:bg-indigo-100 selection:text-indigo-900 relative">
       
+      {/* Delete Confirmation Modal */}
+      {commentToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200 border border-gray-100">
+            <div className="flex items-center space-x-3 text-red-600 mb-4">
+              <div className="bg-red-100 p-2 rounded-full">
+                <AlertTriangle size={24} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">Supprimer le commentaire ?</h3>
+            </div>
+            
+            <p className="text-slate-600 mb-6 leading-relaxed">
+              Êtes-vous sûr de vouloir supprimer ce commentaire ? <br/>
+              <span className="text-sm text-slate-400">Cette action est irréversible.</span>
+            </p>
+            
+            <div className="flex justify-end space-x-3">
+              <button 
+                onClick={() => setCommentToDelete(null)}
+                className="px-4 py-2 rounded-lg text-slate-700 font-medium hover:bg-gray-100 transition-colors"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={confirmDeleteComment}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 shadow-lg shadow-red-200 transition-all"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Admin Back Button */}
       <button onClick={onBackToAdmin} className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white p-3 rounded-full shadow-2xl hover:bg-slate-800 transition-transform hover:scale-110 flex items-center justify-center group" title="Retour Admin">
          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
