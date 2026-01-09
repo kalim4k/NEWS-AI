@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Comment, Post } from '../types';
-import { CheckCircle, XCircle, Trash2, Edit2, Loader2, MessageCircle, AlertCircle, Save, X } from 'lucide-react';
+import { CheckCircle, XCircle, Trash2, Edit2, Loader2, MessageCircle, AlertCircle, Save, X, AlertTriangle } from 'lucide-react';
 import { supabase, SUPABASE_URL } from '../lib/supabase';
 
 interface CommentsProps {
@@ -14,6 +14,12 @@ export const Comments: React.FC<CommentsProps> = ({ posts, blogId }) => {
   const [loading, setLoading] = useState(true);
   const [editingComment, setEditingComment] = useState<Comment | null>(null);
   const [editContent, setEditContent] = useState('');
+  
+  // Delete Modal State
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; commentId: string | null }>({
+    isOpen: false,
+    commentId: null
+  });
 
   useEffect(() => {
     fetchComments();
@@ -48,14 +54,20 @@ export const Comments: React.FC<CommentsProps> = ({ posts, blogId }) => {
     }
   };
 
-  const deleteComment = async (id: string) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce commentaire ?")) return;
-    
+  const handleDeleteClick = (id: string) => {
+    setDeleteModal({ isOpen: true, commentId: id });
+  };
+
+  const confirmDelete = async () => {
+    const id = deleteModal.commentId;
+    if (!id) return;
+
     setComments(comments.filter(c => c.id !== id));
     
     if (!SUPABASE_URL.includes('votre-projet')) {
         await supabase.from('comments').delete().eq('id', id);
     }
+    setDeleteModal({ isOpen: false, commentId: null });
   };
 
   const startEdit = (comment: Comment) => {
@@ -85,7 +97,41 @@ export const Comments: React.FC<CommentsProps> = ({ posts, blogId }) => {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 relative">
+      
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200 border border-gray-100">
+            <div className="flex items-center space-x-3 text-red-600 mb-4">
+              <div className="bg-red-100 p-2 rounded-full">
+                <AlertTriangle size={24} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">Supprimer le commentaire ?</h3>
+            </div>
+            
+            <p className="text-slate-600 mb-6 leading-relaxed">
+              Cette action est irréversible. Le commentaire sera définitivement effacé de la base de données.
+            </p>
+            
+            <div className="flex justify-end space-x-3">
+              <button 
+                onClick={() => setDeleteModal({ isOpen: false, commentId: null })}
+                className="px-5 py-2.5 rounded-lg text-slate-700 font-medium hover:bg-gray-100 transition-colors"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="px-5 py-2.5 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 shadow-lg shadow-red-200 transition-all transform hover:scale-105"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Commentaires</h1>
@@ -173,7 +219,7 @@ export const Comments: React.FC<CommentsProps> = ({ posts, blogId }) => {
                                         <button onClick={() => startEdit(comment)} className="p-1.5 hover:bg-blue-50 rounded-md text-slate-400 hover:text-blue-600" title="Modifier">
                                             <Edit2 size={18} />
                                         </button>
-                                        <button onClick={() => deleteComment(comment.id)} className="p-1.5 hover:bg-red-50 rounded-md text-slate-400 hover:text-red-600" title="Supprimer">
+                                        <button onClick={() => handleDeleteClick(comment.id)} className="p-1.5 hover:bg-red-50 rounded-md text-slate-400 hover:text-red-600" title="Supprimer">
                                             <Trash2 size={18} />
                                         </button>
                                     </div>

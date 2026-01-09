@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Post, BlogSettings, Page, Comment } from '../types';
-import { ArrowLeft, Search, Menu, X, Facebook, Twitter, Linkedin, Calendar, User, MessageCircle, Clock, ChevronLeft, ChevronRight, Send, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Search, Menu, X, Facebook, Twitter, Linkedin, Calendar, User, MessageCircle, Clock, ChevronLeft, ChevronRight, Send, Trash2, AlertTriangle, Loader2, CheckCircle } from 'lucide-react';
 import { supabase, SUPABASE_URL } from '../lib/supabase';
 
 interface PublicBlogProps {
@@ -29,6 +29,7 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // New state for popup
 
   // Reset scroll on view change
   useEffect(() => window.scrollTo(0, 0), [viewState]);
@@ -93,6 +94,13 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
 
     setSubmittingComment(true);
 
+    const finalizeSubmission = () => {
+        setCommentInput('');
+        setAuthorInput('');
+        setShowSuccessModal(true); // Show custom modal
+        setSubmittingComment(false);
+    };
+
     if (SUPABASE_URL.includes('votre-projet')) {
         // Simulation Mode Demo
         const newComment: Comment = {
@@ -100,14 +108,10 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
             author: authorInput,
             content: commentInput,
             created_at: new Date().toISOString(),
-            status: 'pending', // En attente par défaut
+            status: 'pending', 
             post_id: currentPostId
         };
-        // On ne l'ajoute pas à l'affichage car il doit être approuvé
-        alert("Merci ! Votre commentaire a été envoyé pour modération.");
-        setCommentInput('');
-        setAuthorInput('');
-        setSubmittingComment(false);
+        setTimeout(finalizeSubmission, 500);
         return;
     }
 
@@ -121,14 +125,11 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
         });
 
         if (error) throw error;
+        finalizeSubmission();
 
-        alert("Merci ! Votre commentaire a été envoyé pour modération.");
-        setCommentInput('');
-        setAuthorInput('');
     } catch (err) {
         console.error("Erreur envoi commentaire:", err);
         alert("Une erreur est survenue lors de l'envoi.");
-    } finally {
         setSubmittingComment(false);
     }
   };
@@ -311,7 +312,7 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
           </article>
 
           {/* Comments Section */}
-          <section className="max-w-3xl mx-auto mt-16 pt-10 border-t border-gray-200">
+          <section className="max-w-3xl mx-auto mt-16 pt-10 border-t border-gray-200 relative">
              <h3 className="text-2xl font-bold text-slate-900 mb-8 flex items-center">
                <MessageCircle className="mr-3" /> Commentaires ({comments.length})
              </h3>
@@ -436,6 +437,28 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
   return (
     <div className="min-h-screen bg-white font-sans flex flex-col selection:bg-indigo-100 selection:text-indigo-900 relative">
       
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center animate-in zoom-in-95 duration-300 relative">
+                <button onClick={() => setShowSuccessModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                    <X size={20} />
+                </button>
+                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle size={32} strokeWidth={3} />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">Message Envoyé !</h3>
+                <p className="text-slate-600 mb-6 leading-relaxed">Merci pour votre commentaire. Il sera visible une fois approuvé par notre équipe.</p>
+                <button 
+                    onClick={() => setShowSuccessModal(false)}
+                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-indigo-200"
+                >
+                    Continuer la lecture
+                </button>
+            </div>
+        </div>
+      )}
+
       {/* Admin Back Button - VISIBLE ONLY IF NOT VISITOR MODE */}
       {!isVisitorMode && (
         <button onClick={onBackToAdmin} className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white p-3 rounded-full shadow-2xl hover:bg-slate-800 transition-transform hover:scale-110 flex items-center justify-center group" title="Retour Admin">
