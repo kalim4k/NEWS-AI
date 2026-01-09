@@ -39,16 +39,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onClose(); // Close sidebar on mobile when item clicked
   };
 
-  // Construction de l'URL publique avec sous-domaine
-  // Récupération de l'hôte actuel (ex: newsai.com ou localhost:3000)
+  // --- LOGIQUE DE GÉNÉRATION D'URL ROBUSTE ---
   const protocol = window.location.protocol;
-  const host = window.location.host; 
+  const hostname = window.location.hostname;
+  const host = window.location.host; // inclut le port
   
-  // On suppose que l'app admin est sur le domaine racine ou www
-  const rootDomain = host.replace('www.', '');
+  // Vérifications de sécurité pour l'environnement
+  const isNetlifySubdomain = hostname.includes('netlify.app');
+  const isVercelSubdomain = hostname.includes('vercel.app');
+  const isIpAddress = /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/.test(hostname);
+  
+  // Les sous-domaines (slug.site.com) ne fonctionnent QUE sur :
+  // 1. Localhost (si configuré)
+  // 2. Un vrai domaine personnalisé (ex: newsai.fun)
+  // Ils NE fonctionnent PAS sur *.netlify.app (limitation technique Netlify Free) ni sur les IP.
+  const supportsSubdomainWildcard = !isNetlifySubdomain && !isVercelSubdomain && !isIpAddress;
 
-  // Format: http(s)://slug.domaine.com
-  const publicBlogUrl = blogSlug ? `${protocol}//${blogSlug}.${rootDomain}` : '#';
+  let publicBlogUrl = '#';
+  let displayUrl = '';
+
+  if (blogSlug) {
+    if (supportsSubdomainWildcard) {
+        // Mode Production (Custom Domain) ou Localhost
+        const rootDomain = host.replace('www.', '');
+        publicBlogUrl = `${protocol}//${blogSlug}.${rootDomain}`;
+        displayUrl = `${blogSlug}.${rootDomain.split(':')[0]}`;
+    } else {
+        // Mode Fallback (Netlify Staging / IP) -> Utilisation de Query Param
+        publicBlogUrl = `${window.location.origin}?blog=${blogSlug}`;
+        displayUrl = `${hostname}/?blog=${blogSlug}`;
+    }
+  }
 
   return (
     <>
@@ -126,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex flex-col overflow-hidden w-full">
               <span className="text-sm font-bold text-slate-900 truncate">{userName}</span>
               {blogSlug && (
-                 <span className="text-xs text-indigo-600 font-medium truncate">{blogSlug}.{rootDomain.split(':')[0]}</span>
+                 <span className="text-xs text-indigo-600 font-medium truncate" title={displayUrl}>{displayUrl}</span>
               )}
               {!blogSlug && (
                  <span className="text-xs text-slate-500 truncate" title={userEmail}>{userEmail}</span>

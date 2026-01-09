@@ -13,7 +13,7 @@ import { PublicBlog } from './pages/PublicBlog';
 import { Profile } from './pages/Profile';
 import { Auth } from './pages/Auth';
 import { StatData, Post, BlogSettings, Page, UserProfile } from './types';
-import { MessageSquare, Loader2 } from 'lucide-react';
+import { MessageSquare, Loader2, AlertOctagon } from 'lucide-react';
 import { supabase, SUPABASE_URL } from './lib/supabase';
 
 const MOCK_STATS: StatData[] = [
@@ -65,6 +65,7 @@ const App: React.FC = () => {
   // Routing State
   const [isPublicMode, setIsPublicMode] = useState(false);
   const [publicSlug, setPublicSlug] = useState<string | null>(null);
+  const [blogNotFound, setBlogNotFound] = useState(false);
 
   const [currentView, setCurrentView] = useState('dashboard'); 
   const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
@@ -83,12 +84,16 @@ const App: React.FC = () => {
     const parts = hostname.split('.');
     let detectedSlug = null;
 
+    // IMPORTANT: Ignorer les domaines de déploiement par défaut où le sous-domaine est l'app elle-même
+    // ex: my-app.netlify.app -> 'my-app' n'est pas un blog, c'est l'admin.
+    const isProviderDomain = hostname.includes('netlify.app') || hostname.includes('vercel.app') || hostname.includes('herokuapp.com');
+
     // Cas Localhost (ex: jean.localhost)
     if (hostname.includes('localhost') && parts.length > 1) {
         detectedSlug = parts[0]; 
     } 
-    // Cas Production (ex: jean.newsai.com) - on suppose que le domaine principal a au moins 2 parties ou on exclut 'www' et 'app'
-    else if (parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'app') {
+    // Cas Production (ex: jean.newsai.com)
+    else if (!isProviderDomain && parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'app') {
         detectedSlug = parts[0];
     }
 
@@ -103,7 +108,7 @@ const App: React.FC = () => {
       setIsPublicMode(true);
       setPublicSlug(finalSlug);
       fetchPublicData(finalSlug);
-      setLoading(false);
+      // On ne set PAS loading à false ici, on attend le fetch
       return;
     }
 
@@ -177,10 +182,15 @@ const App: React.FC = () => {
 
   // 3. Fetch Public Blog Data (Visitor Mode)
   const fetchPublicData = async (slug: string) => {
-    if (SUPABASE_URL.includes('votre-projet')) return; // Mock data déjà chargé par défaut
+    if (SUPABASE_URL.includes('votre-projet')) {
+        setLoading(false);
+        return; // Mock data déjà chargé par défaut
+    }
 
     try {
       setLoading(true);
+      setBlogNotFound(false);
+
       // Trouver l'ID du blog via le slug
       const { data: blogData, error: blogError } = await supabase
         .from('blogs')
@@ -189,8 +199,8 @@ const App: React.FC = () => {
         .single();
 
       if (blogError || !blogData) {
-        console.error("Blog introuvable");
-        // Optionnel : Afficher une page 404 spécifique
+        console.error("Blog introuvable:", slug);
+        setBlogNotFound(true); // Affiche la page 404
         setLoading(false);
         return;
       }
@@ -207,6 +217,7 @@ const App: React.FC = () => {
 
     } catch (e) {
       console.error("Erreur fetch public data:", e);
+      setBlogNotFound(true);
     } finally {
       setLoading(false);
     }
@@ -304,6 +315,24 @@ const App: React.FC = () => {
 
   // A. VIEW PUBLIC (VISITOR)
   if (isPublicMode) {
+    if (blogNotFound) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center">
+          <div className="bg-white p-10 rounded-2xl shadow-xl max-w-md w-full">
+             <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertOctagon size={32} />
+             </div>
+             <h1 className="text-2xl font-bold text-slate-900 mb-2">Blog Introuvable</h1>
+             <p className="text-slate-500 mb-8">
+               Le blog <strong>{publicSlug}</strong> n'existe pas ou a été supprimé.
+             </p>
+             <a href={window.location.origin} className="block w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-colors">
+               Créer mon propre blog
+             </a>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-white">
         {/* On masque le bouton retour admin pour les visiteurs */}
