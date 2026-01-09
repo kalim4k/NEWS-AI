@@ -39,9 +39,11 @@ export interface Comment {
   id: string;
   author: string;
   content: string;
-  postTitle: string;
-  date: string;
+  post_id: string;
+  created_at: string;
   status: 'approved' | 'pending';
+  // Optional for UI join
+  post_title?: string;
 }
 
 export interface StatData {

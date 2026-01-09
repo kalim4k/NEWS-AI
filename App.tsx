@@ -12,30 +12,19 @@ import { LayoutEditor } from './pages/LayoutEditor';
 import { PublicBlog } from './pages/PublicBlog';
 import { Profile } from './pages/Profile';
 import { Auth } from './pages/Auth';
+import { Comments } from './pages/Comments'; // Import
 import { StatData, Post, BlogSettings, Page, UserProfile } from './types';
-import { MessageSquare, Loader2, AlertOctagon } from 'lucide-react';
+import { Loader2, AlertOctagon } from 'lucide-react';
 import { supabase, SUPABASE_URL } from './lib/supabase';
 
-const MOCK_STATS: StatData[] = [
-  { name: 'Lun', views: 2400, visitors: 1200 },
-  { name: 'Mar', views: 1398, visitors: 800 },
-  { name: 'Mer', views: 9800, visitors: 2000 },
-  { name: 'Jeu', views: 3908, visitors: 1890 },
-  { name: 'Ven', views: 4800, visitors: 2390 },
-  { name: 'Sam', views: 3800, visitors: 2000 },
-  { name: 'Dim', views: 4300, visitors: 2100 },
-];
+// Helper pour générer une semaine vide (Données réelles à 0 par défaut)
+const getEmptyWeekStats = (): StatData[] => {
+  const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  return days.map(d => ({ name: d, views: 0, visitors: 0 }));
+};
 
-const INITIAL_POSTS: Post[] = [
-  { id: '1', title: 'L\'avenir du développement web en 2024', content: '<p>Le paysage du développement web évolue...</p>', status: 'published', author: 'Jean Dupont', date: '12 Oct, 2023', views: 1250, category: 'Tech', tags: ['web'] },
-  { id: '2', title: 'Comprendre l\'IA générative', content: '<p>L\'intelligence artificielle générative...</p>', status: 'published', author: 'Marie Curie', date: '15 Oct, 2023', views: 3400, category: 'AI', tags: ['ai'] },
-  { id: '3', title: '10 astuces Tailwind CSS', content: '<p>Tailwind CSS est devenu...', status: 'draft', author: 'Jean Dupont', date: '18 Oct, 2023', views: 0, category: 'Design', tags: ['css'] },
-];
-
-const INITIAL_PAGES: Page[] = [
-  { id: 'contact', title: 'Contact', slug: '/contact', content: '<h2>Contactez-nous</h2>', status: 'published', lastModified: '10 Oct, 2023' },
-  { id: 'about', title: 'À Propos', slug: '/about', content: '<h2>Notre Mission</h2>', status: 'published', lastModified: '12 Sept, 2023' },
-];
+const INITIAL_POSTS: Post[] = []; // On commence vide pour charger la DB
+const INITIAL_PAGES: Page[] = [];
 
 const INITIAL_SETTINGS: BlogSettings = {
   name: "NEWS AI",
@@ -48,8 +37,8 @@ const INITIAL_SETTINGS: BlogSettings = {
     footerText: "© 2024 NEWS AI Inc. Fait avec passion.",
     showCategoriesInMenu: true,
     logoUrl: "",
-    headerMenu: ['about'],
-    footerMenu: ['contact', 'about'],
+    headerMenu: [],
+    footerMenu: [],
     adCodeHeader: "",
     adCodeSidebar: "",
     adCodeSidebarBottom: "",
@@ -73,6 +62,10 @@ const App: React.FC = () => {
   const [pages, setPages] = useState<Page[]>(INITIAL_PAGES);
   const [settings, setSettings] = useState<BlogSettings>(INITIAL_SETTINGS);
   
+  // Real Time Stats State
+  const [dashboardStats, setDashboardStats] = useState<StatData[]>(getEmptyWeekStats());
+  const [globalStats, setGlobalStats] = useState({ totalViews: 0, totalVisitors: 0, totalArticles: 0 });
+
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [viewingPostId, setViewingPostId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -140,6 +133,22 @@ const App: React.FC = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // --- RECALCUL DES STATS ---
+  // À chaque fois que 'posts' change (chargement initial ou ajout/suppression), on met à jour les stats
+  useEffect(() => {
+    if (posts.length >= 0) {
+      const totalViews = posts.reduce((acc, post) => acc + (post.views || 0), 0);
+      const totalArticles = posts.length;
+      // Note: Pour les visiteurs uniques et les courbes historiques, il faudrait une table 'analytics' dédiée.
+      // Pour l'instant, on affiche 0 visiteurs uniques réels (car non trackés) et les totaux calculés.
+      setGlobalStats({
+        totalViews: totalViews,
+        totalArticles: totalArticles,
+        totalVisitors: 0 
+      });
+    }
+  }, [posts]);
 
   // --- FETCHING DATA ---
 
@@ -275,6 +284,13 @@ const App: React.FC = () => {
       await supabase.from('pages').upsert(updatedPage);
     }
   };
+
+  const handleDeletePage = async (id: string) => {
+    setPages(pages.filter(p => p.id !== id));
+    if (session && !SUPABASE_URL.includes('votre-projet')) {
+      await supabase.from('pages').delete().eq('id', id);
+    }
+  };
   
   const navigateTo = (view: string) => {
     if (view !== 'create-post') setEditingPost(null);
@@ -355,22 +371,33 @@ const App: React.FC = () => {
   }
 
   // Calculate derived stats
-  const totalArticles = posts.length;
-  const totalViews = posts.reduce((acc, post) => acc + (post.views || 0), 0);
-  const totalVisitors = MOCK_STATS.reduce((acc, stat) => acc + stat.visitors, 0);
+  // CES VARIABLES NE SONT PLUS UTILISÉES DIRECTEMENT, ON UTILISE globalStats
+  
+  // NOUVEAU : Récupérer les catégories uniques et le nom d'utilisateur
+  const uniqueCategories = Array.from(new Set(posts.map(p => p.category).filter(Boolean))).sort();
+  const currentUserName = userProfile?.username || userProfile?.full_name || session?.user?.email?.split('@')[0] || 'Auteur';
 
   // C. VIEW ADMIN
   const renderAdminContent = () => {
     switch (currentView) {
-      case 'dashboard': return <Dashboard stats={MOCK_STATS} globalStats={{ totalViews, totalVisitors, totalArticles }} />;
+      // ON PASSE MAINTENANT dashboardStats (vide/plat) et globalStats (calculé)
+      case 'dashboard': return <Dashboard stats={dashboardStats} globalStats={globalStats} />;
       case 'posts': return <Posts posts={posts} onCreatePost={() => navigateTo('create')} onView={handleViewPost} onEdit={handleEditPost} onDelete={handleDeletePost} />;
-      case 'create-post': return <CreatePost initialPost={editingPost} onPublish={handlePublishPost} onCancel={() => navigateTo('posts')} />;
-      case 'pages': return <Pages pages={pages} onUpdatePage={handleUpdatePage} onAddPage={handleAddPage} />;
+      case 'create-post': return (
+        <CreatePost 
+          initialPost={editingPost} 
+          onPublish={handlePublishPost} 
+          onCancel={() => navigateTo('posts')}
+          existingCategories={uniqueCategories} // Passer les catégories existantes
+          currentUser={currentUserName} // Passer l'utilisateur actuel
+        />
+      );
+      case 'pages': return <Pages pages={pages} onUpdatePage={handleUpdatePage} onAddPage={handleAddPage} onDeletePage={handleDeletePage} />;
       case 'settings': return <Settings settings={settings} onUpdate={setSettings} />;
       case 'layout': return <LayoutEditor settings={settings} pages={pages} onUpdate={setSettings} />;
       case 'profile': return <Profile />;
-      case 'comments': return <div className="flex flex-col items-center justify-center h-full text-slate-400"><MessageSquare size={48} /><p className="mt-2">Module Commentaires</p></div>;
-      default: return <Dashboard stats={MOCK_STATS} globalStats={{ totalViews, totalVisitors, totalArticles }} />;
+      case 'comments': return <Comments posts={posts} blogId={userProfile?.blog_id} />;
+      default: return <Dashboard stats={dashboardStats} globalStats={globalStats} />;
     }
   };
 
@@ -400,7 +427,7 @@ const App: React.FC = () => {
         userName={userProfile?.username || "Utilisateur"}
         blogSlug={userProfile?.blogs?.slug}
         onLogout={handleLogout}
-        useSubdomains={settings.useSubdomains} // New prop
+        useSubdomains={settings.useSubdomains} 
       />
       <div className="flex-1 md:ml-64 flex flex-col h-screen relative transition-all duration-300">
         <Header onNavigate={navigateTo} onLogout={handleLogout} userEmail={userProfile?.email || session.user.email} />

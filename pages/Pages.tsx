@@ -1,21 +1,29 @@
+
 import React, { useState } from 'react';
 import { Page } from '../types';
 import { RichEditor } from '../components/RichEditor';
-import { Edit2, Eye, Calendar, Globe, Save, ArrowLeft, CheckCircle, EyeOff, Plus, X } from 'lucide-react';
+import { Edit2, Eye, Calendar, Globe, Save, ArrowLeft, CheckCircle, EyeOff, Plus, X, Trash2, AlertTriangle } from 'lucide-react';
 
 interface PagesProps {
   pages: Page[];
   onUpdatePage: (page: Page) => void;
   onAddPage: (page: { title: string; slug: string; content: string }) => void;
+  onDeletePage: (id: string) => void;
 }
 
-export const Pages: React.FC<PagesProps> = ({ pages, onUpdatePage, onAddPage }) => {
+export const Pages: React.FC<PagesProps> = ({ pages, onUpdatePage, onAddPage, onDeletePage }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   
   // Creation State
   const [isCreating, setIsCreating] = useState(false);
   const [newPage, setNewPage] = useState({ title: '', slug: '', content: '' });
+
+  // Delete State
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; pageId: string | null }>({
+    isOpen: false,
+    pageId: null
+  });
 
   const handleEdit = (page: Page) => {
     setEditingId(page.id);
@@ -41,6 +49,13 @@ export const Pages: React.FC<PagesProps> = ({ pages, onUpdatePage, onAddPage }) 
       onAddPage(newPage);
       setIsCreating(false);
       setNewPage({ title: '', slug: '', content: '' });
+    }
+  };
+
+  const confirmDelete = () => {
+    if (deleteModal.pageId) {
+        onDeletePage(deleteModal.pageId);
+        setDeleteModal({ isOpen: false, pageId: null });
     }
   };
 
@@ -83,6 +98,40 @@ export const Pages: React.FC<PagesProps> = ({ pages, onUpdatePage, onAddPage }) 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 relative">
       
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200 border border-gray-100">
+            <div className="flex items-center space-x-3 text-red-600 mb-4">
+              <div className="bg-red-100 p-2 rounded-full">
+                <AlertTriangle size={24} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">Supprimer la page ?</h3>
+            </div>
+            
+            <p className="text-slate-600 mb-6 leading-relaxed">
+              Êtes-vous sûr de vouloir supprimer cette page ? <br/>
+              <span className="text-sm text-slate-400">Elle disparaîtra de vos menus si elle y était liée.</span>
+            </p>
+            
+            <div className="flex justify-end space-x-3">
+              <button 
+                onClick={() => setDeleteModal({ isOpen: false, pageId: null })}
+                className="px-5 py-2.5 rounded-lg text-slate-700 font-medium hover:bg-gray-100 transition-colors"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="px-5 py-2.5 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 shadow-lg shadow-red-200 transition-all transform hover:scale-105"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Creation Modal */}
       {isCreating && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -178,13 +227,23 @@ export const Pages: React.FC<PagesProps> = ({ pages, onUpdatePage, onAddPage }) 
                  <Eye size={16} className="mr-1.5" />
                  Aperçu
                </button>
-               <button 
-                onClick={() => handleEdit(page)}
-                className="bg-white border border-gray-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-600 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center"
-               >
-                 <Edit2 size={16} className="mr-1.5" />
-                 Modifier
-               </button>
+               
+               <div className="flex space-x-2">
+                   <button 
+                    onClick={() => setDeleteModal({ isOpen: true, pageId: page.id })}
+                    className="bg-white border border-gray-200 text-slate-500 hover:border-red-300 hover:text-red-600 hover:bg-red-50 px-2 py-2 rounded-lg transition-all shadow-sm flex items-center justify-center"
+                    title="Supprimer la page"
+                   >
+                     <Trash2 size={16} />
+                   </button>
+                   <button 
+                    onClick={() => handleEdit(page)}
+                    className="bg-white border border-gray-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-600 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center"
+                   >
+                     <Edit2 size={16} className="mr-1.5" />
+                     Modifier
+                   </button>
+               </div>
             </div>
           </div>
         ))}

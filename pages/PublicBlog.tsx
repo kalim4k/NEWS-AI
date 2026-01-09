@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Post, BlogSettings, Page, Comment } from '../types';
-import { ArrowLeft, Search, Menu, X, Facebook, Twitter, Linkedin, Calendar, User, MessageCircle, Clock, ChevronLeft, ChevronRight, Send, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Search, Menu, X, Facebook, Twitter, Linkedin, Calendar, User, MessageCircle, Clock, ChevronLeft, ChevronRight, Send, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { supabase, SUPABASE_URL } from '../lib/supabase';
 
 interface PublicBlogProps {
   settings: BlogSettings;
@@ -18,21 +19,41 @@ type ViewState =
   | { type: 'page'; pageId: string }
   | { type: 'category'; category: string; page: number };
 
-// Mock Comments for UI demo
-const MOCK_COMMENTS: Comment[] = [
-  { id: '1', author: 'Sophie Martin', date: 'Il y a 2 heures', content: 'Super article, très instructif ! J\'attends la suite avec impatience.', status: 'approved', postTitle: '' },
-  { id: '2', author: 'Marc Dubois', date: 'Hier', content: 'Je ne suis pas tout à fait d\'accord sur le point 2, mais l\'analyse reste pertinente.', status: 'approved', postTitle: '' },
-];
-
 export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, initialPostId, onBackToAdmin, isVisitorMode = false }) => {
   const [viewState, setViewState] = useState<ViewState>(() => initialPostId ? { type: 'post', postId: initialPostId } : { type: 'home', page: 1 });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // Comments State
   const [commentInput, setCommentInput] = useState('');
-  const [comments, setComments] = useState<Comment[]>(MOCK_COMMENTS);
-  const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
+  const [authorInput, setAuthorInput] = useState(''); // Nouveau champ auteur
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   // Reset scroll on view change
   useEffect(() => window.scrollTo(0, 0), [viewState]);
+
+  // Fetch comments when opening a post
+  useEffect(() => {
+    if (viewState.type === 'post') {
+       fetchComments(viewState.postId);
+    }
+  }, [viewState]);
+
+  const fetchComments = async (postId: string) => {
+    if (SUPABASE_URL.includes('votre-projet')) return; // Mode demo
+
+    setLoadingComments(true);
+    const { data, error } = await supabase
+        .from('comments')
+        .select('*')
+        .eq('post_id', postId)
+        .eq('status', 'approved') // Seuls les approuvés sont visibles publiquement
+        .order('created_at', { ascending: false });
+    
+    if (data) setComments(data as Comment[]);
+    setLoadingComments(false);
+  };
 
   const publishedPosts = posts.filter(p => p.status === 'published');
   const publishedPages = pages.filter(p => p.status === 'published');
@@ -59,25 +80,56 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
     );
   };
 
-  const handlePostComment = (e: React.FormEvent) => {
+  const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentInput.trim()) return;
-    const newComment: Comment = {
-      id: Date.now().toString(),
-      author: 'Visiteur',
-      content: commentInput,
-      date: 'À l\'instant',
-      status: 'approved',
-      postTitle: ''
-    };
-    setComments([newComment, ...comments]);
-    setCommentInput('');
-  };
+    if (!commentInput.trim() || !authorInput.trim()) return;
 
-  const confirmDeleteComment = () => {
-    if (commentToDelete) {
-      setComments(comments.filter(c => c.id !== commentToDelete));
-      setCommentToDelete(null);
+    // Récupérer l'ID du post actuel
+    if (viewState.type !== 'post') return;
+    const currentPostId = viewState.postId;
+    
+    // Trouver le blog_id via le post (si disponible dans les props, sinon on fait sans pour l'instant)
+    const currentPost = posts.find(p => p.id === currentPostId);
+
+    setSubmittingComment(true);
+
+    if (SUPABASE_URL.includes('votre-projet')) {
+        // Simulation Mode Demo
+        const newComment: Comment = {
+            id: Date.now().toString(),
+            author: authorInput,
+            content: commentInput,
+            created_at: new Date().toISOString(),
+            status: 'pending', // En attente par défaut
+            post_id: currentPostId
+        };
+        // On ne l'ajoute pas à l'affichage car il doit être approuvé
+        alert("Merci ! Votre commentaire a été envoyé pour modération.");
+        setCommentInput('');
+        setAuthorInput('');
+        setSubmittingComment(false);
+        return;
+    }
+
+    try {
+        const { error } = await supabase.from('comments').insert({
+            post_id: currentPostId,
+            author: authorInput,
+            content: commentInput,
+            status: 'pending', // Toujours en attente
+            blog_id: currentPost?.blog_id
+        });
+
+        if (error) throw error;
+
+        alert("Merci ! Votre commentaire a été envoyé pour modération.");
+        setCommentInput('');
+        setAuthorInput('');
+    } catch (err) {
+        console.error("Erreur envoi commentaire:", err);
+        alert("Une erreur est survenue lors de l'envoi.");
+    } finally {
+        setSubmittingComment(false);
     }
   };
 
@@ -227,10 +279,6 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
                    <Calendar size={16} className="mr-2" />
                    {post.date}
                 </div>
-                <div className="flex items-center text-sm text-slate-500">
-                   <Clock size={16} className="mr-2" />
-                   5 min de lecture
-                </div>
                 <div className="flex-1 flex justify-end gap-2">
                    <button className="p-2 rounded-full hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors"><Facebook size={18} /></button>
                    <button className="p-2 rounded-full hover:bg-sky-50 text-slate-400 hover:text-sky-500 transition-colors"><Twitter size={18} /></button>
@@ -270,44 +318,66 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
 
              {/* Comment Form */}
              <form onSubmit={handlePostComment} className="mb-12 bg-gray-50 p-6 rounded-xl border border-gray-100">
-                <label className="block text-sm font-bold text-slate-700 mb-2">Laisser un commentaire</label>
-                <textarea 
-                  value={commentInput}
-                  onChange={(e) => setCommentInput(e.target.value)}
-                  className="w-full p-4 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] mb-4 bg-white"
-                  placeholder="Partagez votre avis sur cet article..."
-                />
-                <div className="flex justify-end">
-                   <button type="submit" className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-indigo-700 transition-all flex items-center shadow-md disabled:opacity-50 disabled:cursor-not-allowed" disabled={!commentInput.trim()}>
+                <h4 className="font-bold text-slate-800 mb-4">Laisser un commentaire</h4>
+                
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Votre Prénom</label>
+                    <input 
+                        type="text"
+                        value={authorInput}
+                        onChange={(e) => setAuthorInput(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                        placeholder="Ex: Sophie"
+                        required
+                    />
+                </div>
+
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Votre message</label>
+                    <textarea 
+                      value={commentInput}
+                      onChange={(e) => setCommentInput(e.target.value)}
+                      className="w-full p-4 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] bg-white"
+                      placeholder="Partagez votre avis sur cet article..."
+                      required
+                    />
+                </div>
+
+                <div className="flex justify-end items-center space-x-3">
+                   {submittingComment && <Loader2 className="animate-spin text-indigo-600" />}
+                   <button type="submit" className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-indigo-700 transition-all flex items-center shadow-md disabled:opacity-50 disabled:cursor-not-allowed" disabled={!commentInput.trim() || !authorInput.trim() || submittingComment}>
                      Envoyer <Send size={16} className="ml-2" />
                    </button>
                 </div>
+                <p className="text-xs text-slate-400 mt-2 text-right">Les commentaires sont soumis à modération.</p>
              </form>
 
              {/* Comments List */}
-             <div className="space-y-8">
-               {comments.map(comment => (
-                 <div key={comment.id} className="flex space-x-4">
-                    <div className="flex-shrink-0">
-                       <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center text-slate-500">
-                          <User size={20} />
-                       </div>
+             {loadingComments ? (
+                 <div className="flex justify-center py-8"><Loader2 className="animate-spin text-slate-400" /></div>
+             ) : (
+                <div className="space-y-8">
+                {comments.map(comment => (
+                    <div key={comment.id} className="flex space-x-4 animate-in fade-in">
+                        <div className="flex-shrink-0">
+                        <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center text-slate-500">
+                            <User size={20} />
+                        </div>
+                        </div>
+                        <div className="flex-1">
+                        <div className="flex items-baseline justify-between mb-1">
+                            <h4 className="font-bold text-slate-900">{comment.author}</h4>
+                            <div className="flex items-center space-x-3">
+                                <span className="text-xs text-slate-500">{new Date(comment.created_at).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        <p className="text-slate-600 leading-relaxed bg-white p-4 rounded-lg border border-gray-100 shadow-sm">{comment.content}</p>
+                        </div>
                     </div>
-                    <div className="flex-1">
-                       <div className="flex items-baseline justify-between mb-1">
-                          <h4 className="font-bold text-slate-900">{comment.author}</h4>
-                          <div className="flex items-center space-x-3">
-                             <span className="text-xs text-slate-500">{comment.date}</span>
-                             <button onClick={() => setCommentToDelete(comment.id)} className="text-slate-400 hover:text-red-500 transition-colors" title="Supprimer">
-                               <Trash2 size={14} />
-                             </button>
-                          </div>
-                       </div>
-                       <p className="text-slate-600 leading-relaxed bg-white p-4 rounded-lg border border-gray-100 shadow-sm">{comment.content}</p>
-                    </div>
-                 </div>
-               ))}
-             </div>
+                ))}
+                {comments.length === 0 && <p className="text-slate-500 text-center italic">Soyez le premier à commenter !</p>}
+                </div>
+             )}
           </section>
         </div>
       );
@@ -366,40 +436,6 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
   return (
     <div className="min-h-screen bg-white font-sans flex flex-col selection:bg-indigo-100 selection:text-indigo-900 relative">
       
-      {/* Delete Confirmation Modal */}
-      {commentToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200 border border-gray-100">
-            <div className="flex items-center space-x-3 text-red-600 mb-4">
-              <div className="bg-red-100 p-2 rounded-full">
-                <AlertTriangle size={24} />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900">Supprimer le commentaire ?</h3>
-            </div>
-            
-            <p className="text-slate-600 mb-6 leading-relaxed">
-              Êtes-vous sûr de vouloir supprimer ce commentaire ? <br/>
-              <span className="text-sm text-slate-400">Cette action est irréversible.</span>
-            </p>
-            
-            <div className="flex justify-end space-x-3">
-              <button 
-                onClick={() => setCommentToDelete(null)}
-                className="px-4 py-2 rounded-lg text-slate-700 font-medium hover:bg-gray-100 transition-colors"
-              >
-                Annuler
-              </button>
-              <button 
-                onClick={confirmDeleteComment}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 shadow-lg shadow-red-200 transition-all"
-              >
-                Supprimer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Admin Back Button - VISIBLE ONLY IF NOT VISITOR MODE */}
       {!isVisitorMode && (
         <button onClick={onBackToAdmin} className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white p-3 rounded-full shadow-2xl hover:bg-slate-800 transition-transform hover:scale-110 flex items-center justify-center group" title="Retour Admin">
