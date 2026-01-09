@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { BlogSettings } from '../types';
-import { Save, Globe, Palette, Monitor } from 'lucide-react';
+import { Save, Globe, Palette, Monitor, AlertTriangle } from 'lucide-react';
 
 interface SettingsProps {
   settings: BlogSettings;
@@ -9,7 +10,7 @@ interface SettingsProps {
 
 export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-4xl">
+    <div className="space-y-6 animate-in fade-in duration-500 max-w-4xl pb-10">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Paramètres</h1>
         <p className="text-slate-500 mt-1">Configurez l'apparence et les informations générales de votre blog.</p>
@@ -46,6 +47,45 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
               />
               <p className="text-xs text-slate-400 mt-1">Sera affiché dans le pied de page et les méta-données.</p>
             </div>
+          </div>
+        </div>
+        
+        {/* Domain Settings */}
+        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <Monitor className="w-5 h-5 text-blue-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-slate-900">Configuration du Domaine</h2>
+          </div>
+          
+          <div className="flex flex-col space-y-4">
+              <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="pt-1"><AlertTriangle size={16} className="text-amber-500" /></div>
+                  <div className="text-sm text-slate-600">
+                      <p className="font-bold text-slate-800 mb-1">Mode Sous-domaines (Avancé)</p>
+                      <p className="mb-2">Activer cette option change les liens de votre blog de <code>monsite.com/?blog=slug</code> vers <code>slug.monsite.com</code>.</p>
+                      <p className="text-xs text-slate-500">Nécessite une configuration DNS Wildcard (*.monsite.com) chez votre hébergeur. Si vos liens ne fonctionnent plus après activation, désactivez cette option.</p>
+                  </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                  <label className="flex items-center cursor-pointer">
+                      <div className="relative">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only" 
+                            checked={settings.useSubdomains}
+                            onChange={(e) => onUpdate({...settings, useSubdomains: e.target.checked})}
+                          />
+                          <div className={`block w-14 h-8 rounded-full transition-colors ${settings.useSubdomains ? 'bg-indigo-600' : 'bg-gray-200'}`}></div>
+                          <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${settings.useSubdomains ? 'transform translate-x-6' : ''}`}></div>
+                      </div>
+                      <div className="ml-3 text-sm font-medium text-slate-700">
+                          {settings.useSubdomains ? 'Sous-domaines activés' : 'Sous-domaines désactivés'}
+                      </div>
+                  </label>
+              </div>
           </div>
         </div>
 

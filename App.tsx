@@ -42,6 +42,7 @@ const INITIAL_SETTINGS: BlogSettings = {
   description: "L'actualité de l'IA, décryptée pour vous.",
   themeColor: "#0f172a",
   language: "fr",
+  useSubdomains: false, // Par défaut désactivé pour éviter les erreurs DNS
   layout: {
     postsPerPage: 6,
     footerText: "© 2024 NEWS AI Inc. Fait avec passion.",
@@ -399,6 +400,7 @@ const App: React.FC = () => {
         userName={userProfile?.username || "Utilisateur"}
         blogSlug={userProfile?.blogs?.slug}
         onLogout={handleLogout}
+        useSubdomains={settings.useSubdomains} // New prop
       />
       <div className="flex-1 md:ml-64 flex flex-col h-screen relative transition-all duration-300">
         <Header onNavigate={navigateTo} onLogout={handleLogout} userEmail={userProfile?.email || session.user.email} />

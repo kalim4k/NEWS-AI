@@ -12,6 +12,7 @@ interface SidebarProps {
   userName?: string;
   blogSlug?: string;
   onLogout?: () => void;
+  useSubdomains?: boolean; // New prop
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -23,7 +24,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   userEmail = "admin@newsai.com",
   userName = "Utilisateur",
   blogSlug,
-  onLogout 
+  onLogout,
+  useSubdomains = false
 }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
@@ -59,13 +61,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   let displayUrl = '';
 
   if (blogSlug) {
-    if (supportsSubdomainWildcard) {
-        // Mode Production (Custom Domain) ou Localhost
+    if (useSubdomains && supportsSubdomainWildcard) {
+        // Mode Sous-Domaine (Si activé par l'utilisateur et supporté par l'infra)
         const rootDomain = host.replace('www.', '');
         publicBlogUrl = `${protocol}//${blogSlug}.${rootDomain}`;
         displayUrl = `${blogSlug}.${rootDomain.split(':')[0]}`;
     } else {
-        // Mode Fallback (Netlify Staging / IP) -> Utilisation de Query Param
+        // Mode Fallback (Défaut) -> Utilisation de Query Param
         publicBlogUrl = `${window.location.origin}?blog=${blogSlug}`;
         displayUrl = `${hostname}/?blog=${blogSlug}`;
     }

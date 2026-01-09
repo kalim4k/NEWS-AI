@@ -70,5 +70,6 @@ export interface BlogSettings {
   description: string;
   themeColor: string;
   language: string;
+  useSubdomains: boolean; // New setting for routing mode
   layout: LayoutConfig;
 }
