@@ -39,10 +39,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onClose(); // Close sidebar on mobile when item clicked
   };
 
-  // Construction de l'URL publique
-  // En production avec sous-domaine réel, ce serait : `https://${blogSlug}.mondomaine.com`
-  // Pour cette SPA, on utilise un paramètre de requête : `/?blog=${blogSlug}`
-  const publicBlogUrl = blogSlug ? `${window.location.origin}?blog=${blogSlug}` : '#';
+  // Construction de l'URL publique avec sous-domaine
+  // Récupération de l'hôte actuel (ex: newsai.com ou localhost:3000)
+  const protocol = window.location.protocol;
+  const host = window.location.host; 
+  
+  // On suppose que l'app admin est sur le domaine racine ou www
+  const rootDomain = host.replace('www.', '');
+
+  // Format: http(s)://slug.domaine.com
+  const publicBlogUrl = blogSlug ? `${protocol}//${blogSlug}.${rootDomain}` : '#';
 
   return (
     <>
@@ -120,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex flex-col overflow-hidden w-full">
               <span className="text-sm font-bold text-slate-900 truncate">{userName}</span>
               {blogSlug && (
-                 <span className="text-xs text-indigo-600 font-medium truncate">@{blogSlug}</span>
+                 <span className="text-xs text-indigo-600 font-medium truncate">{blogSlug}.{rootDomain.split(':')[0]}</span>
               )}
               {!blogSlug && (
                  <span className="text-xs text-slate-500 truncate" title={userEmail}>{userEmail}</span>

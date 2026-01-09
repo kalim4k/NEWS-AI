@@ -77,15 +77,32 @@ const App: React.FC = () => {
 
   useEffect(() => {
     // 0. Initialisation : Vérifier si on est en "Mode Public" (Visiteur) ou "Mode Admin"
-    // On vérifie l'URL pour un paramètre ?blog=slug
+    
+    // --- NOUVELLE LOGIQUE SOUS-DOMAINE ---
+    const hostname = window.location.hostname; // ex: jean.monsite.com
+    const parts = hostname.split('.');
+    let detectedSlug = null;
+
+    // Cas Localhost (ex: jean.localhost)
+    if (hostname.includes('localhost') && parts.length > 1) {
+        detectedSlug = parts[0]; 
+    } 
+    // Cas Production (ex: jean.newsai.com) - on suppose que le domaine principal a au moins 2 parties ou on exclut 'www' et 'app'
+    else if (parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'app') {
+        detectedSlug = parts[0];
+    }
+
+    // Support fallback paramètre URL (?blog=slug) pour le dev facile si pas de DNS wildcard
     const searchParams = new URLSearchParams(window.location.search);
     const slugFromUrl = searchParams.get('blog');
 
-    if (slugFromUrl) {
+    const finalSlug = detectedSlug || slugFromUrl;
+
+    if (finalSlug) {
       // MODE PUBLIC : On affiche le blog correspondant au slug
       setIsPublicMode(true);
-      setPublicSlug(slugFromUrl);
-      fetchPublicData(slugFromUrl);
+      setPublicSlug(finalSlug);
+      fetchPublicData(finalSlug);
       setLoading(false);
       return;
     }
@@ -173,6 +190,7 @@ const App: React.FC = () => {
 
       if (blogError || !blogData) {
         console.error("Blog introuvable");
+        // Optionnel : Afficher une page 404 spécifique
         setLoading(false);
         return;
       }
