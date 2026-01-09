@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
@@ -11,8 +11,10 @@ import { Settings } from './pages/Settings';
 import { LayoutEditor } from './pages/LayoutEditor';
 import { PublicBlog } from './pages/PublicBlog';
 import { Profile } from './pages/Profile';
-import { StatData, Post, BlogSettings, Page } from './types';
-import { MessageSquare } from 'lucide-react';
+import { Auth } from './pages/Auth';
+import { StatData, Post, BlogSettings, Page, UserProfile } from './types';
+import { MessageSquare, Loader2 } from 'lucide-react';
+import { supabase, SUPABASE_URL } from './lib/supabase';
 
 const MOCK_STATS: StatData[] = [
   { name: 'Lun', views: 2400, visitors: 1200 },
@@ -56,6 +58,14 @@ const INITIAL_SETTINGS: BlogSettings = {
 };
 
 const App: React.FC = () => {
+  const [session, setSession] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Routing State
+  const [isPublicMode, setIsPublicMode] = useState(false);
+  const [publicSlug, setPublicSlug] = useState<string | null>(null);
+
   const [currentView, setCurrentView] = useState('dashboard'); 
   const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
   const [pages, setPages] = useState<Page[]>(INITIAL_PAGES);
@@ -65,27 +75,158 @@ const App: React.FC = () => {
   const [viewingPostId, setViewingPostId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Calculate derived stats for Dashboard consistency
-  const totalViews = MOCK_STATS.reduce((acc, curr) => acc + curr.views, 0);
-  const totalVisitors = MOCK_STATS.reduce((acc, curr) => acc + curr.visitors, 0);
-  const totalArticles = posts.length;
+  useEffect(() => {
+    // 0. Initialisation : Vérifier si on est en "Mode Public" (Visiteur) ou "Mode Admin"
+    // On vérifie l'URL pour un paramètre ?blog=slug
+    const searchParams = new URLSearchParams(window.location.search);
+    const slugFromUrl = searchParams.get('blog');
 
-  const handlePublishPost = (newPostData: Omit<Post, 'id' | 'date' | 'views'>) => {
-    if (editingPost) {
-        setPosts(posts.map(p => p.id === editingPost.id ? { ...newPostData, id: editingPost.id, date: editingPost.date, views: editingPost.views } : p));
-        setEditingPost(null);
-    } else {
-        const newPost: Post = { ...newPostData, id: Date.now().toString(), date: new Date().toLocaleDateString('fr-FR'), views: 0 };
-        setPosts([newPost, ...posts]);
+    if (slugFromUrl) {
+      // MODE PUBLIC : On affiche le blog correspondant au slug
+      setIsPublicMode(true);
+      setPublicSlug(slugFromUrl);
+      fetchPublicData(slugFromUrl);
+      setLoading(false);
+      return;
     }
+
+    // MODE ADMIN : On vérifie l'authentification
+    if (SUPABASE_URL.includes('votre-projet')) {
+        console.warn("Supabase non configuré. Mode démo local.");
+        setLoading(false);
+        return;
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) fetchUserProfile(session.user.id);
+      else setLoading(false);
+    }).catch(err => {
+      console.error("Erreur session:", err);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) fetchUserProfile(session.user.id);
+      else {
+        setUserProfile(null);
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // --- FETCHING DATA ---
+
+  // 1. Fetch User Profile (Admin Mode)
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      if (SUPABASE_URL.includes('votre-projet')) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*, blogs(slug, id)')
+        .eq('id', userId)
+        .single();
+      
+      if (data) {
+        setUserProfile(data as UserProfile);
+        // Une fois le profil chargé, on charge les données du blog de cet utilisateur
+        if (data.blog_id) fetchAdminData(data.blog_id);
+      }
+    } catch (e) {
+      console.error("Error fetching profile:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2. Fetch Blog Data for Admin (Filtered by blog_id)
+  const fetchAdminData = async (blogId: string) => {
+      if (SUPABASE_URL.includes('votre-projet')) return;
+
+      try {
+        const { data: postsData } = await supabase.from('posts').select('*').eq('blog_id', blogId).order('date', { ascending: false });
+        if (postsData) setPosts(postsData as Post[]);
+
+        const { data: pagesData } = await supabase.from('pages').select('*').eq('blog_id', blogId);
+        if (pagesData) setPages(pagesData as Page[]);
+      } catch (e) {
+        console.error("Erreur fetch admin data:", e);
+      }
+  };
+
+  // 3. Fetch Public Blog Data (Visitor Mode)
+  const fetchPublicData = async (slug: string) => {
+    if (SUPABASE_URL.includes('votre-projet')) return; // Mock data déjà chargé par défaut
+
+    try {
+      setLoading(true);
+      // Trouver l'ID du blog via le slug
+      const { data: blogData, error: blogError } = await supabase
+        .from('blogs')
+        .select('id, name')
+        .eq('slug', slug)
+        .single();
+
+      if (blogError || !blogData) {
+        console.error("Blog introuvable");
+        setLoading(false);
+        return;
+      }
+
+      // Mettre à jour le nom du blog dans les settings pour l'affichage
+      setSettings(prev => ({ ...prev, name: blogData.name || prev.name }));
+
+      // Charger les posts et pages de ce blog
+      const { data: postsData } = await supabase.from('posts').select('*').eq('blog_id', blogData.id).eq('status', 'published').order('date', { ascending: false });
+      if (postsData) setPosts(postsData as Post[]);
+
+      const { data: pagesData } = await supabase.from('pages').select('*').eq('blog_id', blogData.id).eq('status', 'published');
+      if (pagesData) setPages(pagesData as Page[]);
+
+    } catch (e) {
+      console.error("Erreur fetch public data:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  // --- ACTIONS (Admin Mode) ---
+
+  const handlePublishPost = async (newPostData: Omit<Post, 'id' | 'date' | 'views'>) => {
+    let postToSave: Post;
+    if (editingPost) {
+        postToSave = { ...newPostData, id: editingPost.id, date: editingPost.date, views: editingPost.views };
+    } else {
+        postToSave = { ...newPostData, id: Date.now().toString(), date: new Date().toLocaleDateString('fr-FR'), views: 0 };
+    }
+
+    if (editingPost) setPosts(posts.map(p => p.id === postToSave.id ? postToSave : p));
+    else setPosts([postToSave, ...posts]);
+
+    if (session && userProfile && !SUPABASE_URL.includes('votre-projet')) {
+       await supabase.from('posts').upsert({...postToSave, blog_id: userProfile.blog_id});
+    }
+
+    setEditingPost(null);
     setCurrentView('posts');
   };
 
-  const handleDeletePost = (id: string) => setPosts(posts.filter(p => p.id !== id));
+  const handleDeletePost = async (id: string) => {
+    setPosts(posts.filter(p => p.id !== id));
+    if (session && !SUPABASE_URL.includes('votre-projet')) {
+      await supabase.from('posts').delete().eq('id', id);
+    }
+  };
+
   const handleEditPost = (post: Post) => { setEditingPost(post); setCurrentView('create-post'); };
-  const handleViewPost = (post: Post) => { setViewingPostId(post.id); setCurrentView('public'); };
+  const handleViewPost = (post: Post) => { setViewingPostId(post.id); setCurrentView('public'); }; // Aperçu interne
   
-  const handleAddPage = (pageData: { title: string; slug: string; content: string }) => {
+  const handleAddPage = async (pageData: { title: string; slug: string; content: string }) => {
     const newPage: Page = {
       id: Date.now().toString(),
       ...pageData,
@@ -93,6 +234,16 @@ const App: React.FC = () => {
       lastModified: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
     };
     setPages([...pages, newPage]);
+    if (session && userProfile && !SUPABASE_URL.includes('votre-projet')) {
+       await supabase.from('pages').insert({...newPage, blog_id: userProfile.blog_id});
+    }
+  };
+
+  const handleUpdatePage = async (updatedPage: Page) => {
+    setPages(pages.map(pg => pg.id === updatedPage.id ? updatedPage : pg));
+    if (session && !SUPABASE_URL.includes('votre-projet')) {
+      await supabase.from('pages').upsert(updatedPage);
+    }
   };
   
   const navigateTo = (view: string) => {
@@ -101,12 +252,72 @@ const App: React.FC = () => {
     else setCurrentView(view);
   };
 
-  const renderContent = () => {
+  const handleLogout = async () => {
+    if (!SUPABASE_URL.includes('votre-projet')) {
+        await supabase.auth.signOut();
+    }
+    setSession(null);
+    setUserProfile(null);
+    // Rediriger vers l'accueil admin (nettoyer URL)
+    window.location.href = window.location.origin;
+  };
+
+  const handleLoginSuccess = () => {
+      if (SUPABASE_URL.includes('votre-projet')) {
+          const fakeUser = { id: 'demo-user', email: 'demo@newsai.com' };
+          setSession({ user: fakeUser });
+          setUserProfile({ id: 'demo-user', email: 'demo@newsai.com', blog_id: 'demo-blog', username: 'Demo User', full_name: 'Utilisateur Démo', blogs: { slug: 'demo-blog' } });
+      } else {
+          setLoading(true);
+      }
+  };
+
+
+  // --- RENDERING ---
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
+        <p className="text-slate-500 font-medium">Chargement...</p>
+      </div>
+    );
+  }
+
+  // A. VIEW PUBLIC (VISITOR)
+  if (isPublicMode) {
+    return (
+      <div className="min-h-screen bg-white">
+        {/* On masque le bouton retour admin pour les visiteurs */}
+        <PublicBlog 
+          settings={settings} 
+          posts={posts} 
+          pages={pages} 
+          initialPostId={null} 
+          onBackToAdmin={() => {}} 
+          isVisitorMode={true}
+        />
+      </div>
+    );
+  }
+
+  // B. VIEW AUTH
+  if (!session) {
+    return <Auth onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Calculate derived stats
+  const totalArticles = posts.length;
+  const totalViews = posts.reduce((acc, post) => acc + (post.views || 0), 0);
+  const totalVisitors = MOCK_STATS.reduce((acc, stat) => acc + stat.visitors, 0);
+
+  // C. VIEW ADMIN
+  const renderAdminContent = () => {
     switch (currentView) {
       case 'dashboard': return <Dashboard stats={MOCK_STATS} globalStats={{ totalViews, totalVisitors, totalArticles }} />;
       case 'posts': return <Posts posts={posts} onCreatePost={() => navigateTo('create')} onView={handleViewPost} onEdit={handleEditPost} onDelete={handleDeletePost} />;
       case 'create-post': return <CreatePost initialPost={editingPost} onPublish={handlePublishPost} onCancel={() => navigateTo('posts')} />;
-      case 'pages': return <Pages pages={pages} onUpdatePage={(p) => setPages(pages.map(pg => pg.id === p.id ? p : pg))} onAddPage={handleAddPage} />;
+      case 'pages': return <Pages pages={pages} onUpdatePage={handleUpdatePage} onAddPage={handleAddPage} />;
       case 'settings': return <Settings settings={settings} onUpdate={setSettings} />;
       case 'layout': return <LayoutEditor settings={settings} pages={pages} onUpdate={setSettings} />;
       case 'profile': return <Profile />;
@@ -115,22 +326,39 @@ const App: React.FC = () => {
     }
   };
 
-  if (currentView === 'public') return <PublicBlog settings={settings} posts={posts} pages={pages} initialPostId={viewingPostId} onBackToAdmin={() => { setViewingPostId(null); setCurrentView('dashboard'); }} />;
+  // Preview Mode inside Admin
+  if (currentView === 'public') {
+    return (
+      <PublicBlog 
+        settings={settings} 
+        posts={posts} 
+        pages={pages} 
+        initialPostId={viewingPostId} 
+        onBackToAdmin={() => { setViewingPostId(null); setCurrentView('dashboard'); }} 
+        isVisitorMode={false}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50 text-slate-800 font-sans overflow-hidden">
-      <Sidebar currentView={currentView === 'create-post' ? 'posts' : currentView} onChangeView={navigateTo} onViewBlog={() => navigateTo('public')} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Sidebar 
+        currentView={currentView === 'create-post' ? 'posts' : currentView} 
+        onChangeView={navigateTo} 
+        onViewBlog={() => { /* Handled by href in Sidebar now */ }} 
+        isOpen={isSidebarOpen} 
+        onClose={() => setIsSidebarOpen(false)} 
+        userEmail={userProfile?.email || session.user.email}
+        userName={userProfile?.username || "Utilisateur"}
+        blogSlug={userProfile?.blogs?.slug}
+        onLogout={handleLogout}
+      />
       <div className="flex-1 md:ml-64 flex flex-col h-screen relative transition-all duration-300">
-        <Header onNavigate={navigateTo} onLogout={() => alert('Déconnexion...')} />
+        <Header onNavigate={navigateTo} onLogout={handleLogout} userEmail={userProfile?.email || session.user.email} />
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth pb-24 md:pb-8">
-          <div className="max-w-7xl mx-auto min-h-[calc(100vh-140px)]">{renderContent()}</div>
+          <div className="max-w-7xl mx-auto min-h-[calc(100vh-140px)]">{renderAdminContent()}</div>
         </main>
-        <MobileNav 
-            currentView={currentView === 'create-post' ? 'posts' : currentView} 
-            onChangeView={navigateTo} 
-            onOpenCreate={() => navigateTo('create')} 
-            onOpenSidebar={() => setIsSidebarOpen(true)}
-        />
+        <MobileNav currentView={currentView === 'create-post' ? 'posts' : currentView} onChangeView={navigateTo} onOpenCreate={() => navigateTo('create')} onOpenSidebar={() => setIsSidebarOpen(true)} />
       </div>
     </div>
   );

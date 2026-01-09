@@ -9,6 +9,7 @@ interface PublicBlogProps {
   pages: Page[];
   initialPostId?: string | null;
   onBackToAdmin: () => void;
+  isVisitorMode?: boolean;
 }
 
 type ViewState = 
@@ -23,7 +24,7 @@ const MOCK_COMMENTS: Comment[] = [
   { id: '2', author: 'Marc Dubois', date: 'Hier', content: 'Je ne suis pas tout à fait d\'accord sur le point 2, mais l\'analyse reste pertinente.', status: 'approved', postTitle: '' },
 ];
 
-export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, initialPostId, onBackToAdmin }) => {
+export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, initialPostId, onBackToAdmin, isVisitorMode = false }) => {
   const [viewState, setViewState] = useState<ViewState>(() => initialPostId ? { type: 'post', postId: initialPostId } : { type: 'home', page: 1 });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [commentInput, setCommentInput] = useState('');
@@ -113,6 +114,10 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
       const featuredPost = viewState.page === 1 ? visiblePosts[0] : null;
       const gridPosts = viewState.page === 1 ? visiblePosts.slice(1) : visiblePosts;
 
+      if (publishedPosts.length === 0) {
+        return <div className="text-center py-20 text-slate-400">Aucun article publié pour le moment.</div>;
+      }
+
       return (
         <div className="animate-in fade-in duration-500">
           
@@ -176,10 +181,11 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
                            <span className="bg-white px-2 py-0.5 rounded-full text-xs text-slate-400 border">{publishedPosts.filter(p => p.category === cat).length}</span>
                         </button>
                      ))}
+                     {categories.length === 0 && <span className="text-xs text-slate-400">Aucune catégorie</span>}
                   </div>
                </div>
 
-               {/* Sidebar Ad Bottom (Replacing Newsletter) */}
+               {/* Sidebar Ad Bottom */}
                <AdSpace code={settings.layout.adCodeSidebarBottom} />
             </aside>
           </div>
@@ -232,7 +238,7 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
                 </div>
              </div>
 
-             {/* Featured Image - NOW BELOW TITLE */}
+             {/* Featured Image */}
              {post.imageUrl && (
                 <div className="mb-10 rounded-xl overflow-hidden shadow-lg">
                   <img src={post.imageUrl} alt={post.title} className="w-full max-h-[500px] object-cover" />
@@ -394,10 +400,12 @@ export const PublicBlog: React.FC<PublicBlogProps> = ({ settings, posts, pages, 
         </div>
       )}
 
-      {/* Admin Back Button */}
-      <button onClick={onBackToAdmin} className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white p-3 rounded-full shadow-2xl hover:bg-slate-800 transition-transform hover:scale-110 flex items-center justify-center group" title="Retour Admin">
-         <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-      </button>
+      {/* Admin Back Button - VISIBLE ONLY IF NOT VISITOR MODE */}
+      {!isVisitorMode && (
+        <button onClick={onBackToAdmin} className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white p-3 rounded-full shadow-2xl hover:bg-slate-800 transition-transform hover:scale-110 flex items-center justify-center group" title="Retour Admin">
+            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+        </button>
+      )}
 
       {/* Header */}
       <header className="bg-white sticky top-0 z-40 border-b border-gray-200 shadow-sm/50">

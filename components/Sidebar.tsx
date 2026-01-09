@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { LayoutDashboard, FileText, Layers, MessageSquare, Settings, ExternalLink, LogOut, LayoutTemplate, X, Zap } from 'lucide-react';
 
@@ -7,9 +8,23 @@ interface SidebarProps {
   onViewBlog: () => void;
   isOpen: boolean;
   onClose: () => void;
+  userEmail?: string;
+  userName?: string;
+  blogSlug?: string;
+  onLogout?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, onViewBlog, isOpen, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  currentView, 
+  onChangeView, 
+  onViewBlog, 
+  isOpen, 
+  onClose,
+  userEmail = "admin@newsai.com",
+  userName = "Utilisateur",
+  blogSlug,
+  onLogout 
+}) => {
   const menuItems = [
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
     { id: 'posts', label: 'Articles', icon: FileText },
@@ -23,6 +38,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, onV
     onChangeView(id);
     onClose(); // Close sidebar on mobile when item clicked
   };
+
+  // Construction de l'URL publique
+  // En production avec sous-domaine réel, ce serait : `https://${blogSlug}.mondomaine.com`
+  // Pour cette SPA, on utilise un paramètre de requête : `/?blog=${blogSlug}`
+  const publicBlogUrl = blogSlug ? `${window.location.origin}?blog=${blogSlug}` : '#';
 
   return (
     <>
@@ -75,13 +95,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, onV
           
           <div className="pt-4 mt-4 border-t border-gray-100">
              <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Externe</p>
-            <button
-              onClick={() => { onViewBlog(); onClose(); }}
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+            {/* Lien vers le blog public (Nouvel onglet) */}
+            <a
+              href={publicBlogUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-gray-50 hover:text-indigo-600 transition-colors ${!blogSlug ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
             >
               <ExternalLink size={20} />
               <span>Voir le Blog Public</span>
-            </button>
+            </a>
           </div>
         </nav>
 
@@ -89,20 +112,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, onV
         <div className="p-4 border-t border-gray-200 bg-gray-50 shrink-0">
           <div className="flex items-center space-x-3 mb-4 px-2">
             <div className="relative">
-              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                AU
+              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm uppercase">
+                {userName.substring(0, 2)}
               </div>
               <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
             </div>
-            <div className="flex flex-col overflow-hidden">
-              <span className="text-sm font-bold text-slate-900 truncate">Admin User</span>
-              <span className="text-xs text-slate-500 truncate">admin@newsai.com</span>
+            <div className="flex flex-col overflow-hidden w-full">
+              <span className="text-sm font-bold text-slate-900 truncate">{userName}</span>
+              {blogSlug && (
+                 <span className="text-xs text-indigo-600 font-medium truncate">@{blogSlug}</span>
+              )}
+              {!blogSlug && (
+                 <span className="text-xs text-slate-500 truncate" title={userEmail}>{userEmail}</span>
+              )}
             </div>
           </div>
           
           <button 
             className="w-full flex items-center space-x-3 px-2 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white transition-colors group"
-            onClick={() => alert("Déconnexion...")}
+            onClick={onLogout}
           >
             <LogOut size={18} className="text-slate-400 group-hover:text-slate-600" />
             <span className="text-sm font-medium">Déconnexion</span>

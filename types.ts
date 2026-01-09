@@ -1,4 +1,16 @@
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  blog_id: string;
+  username?: string;
+  full_name?: string;
+  avatar_url?: string;
+  blogs?: {
+    slug: string;
+  };
+}
+
 export interface Post {
   id: string;
   title: string;
@@ -10,6 +22,7 @@ export interface Post {
   category: string;
   tags: string[];
   imageUrl?: string;
+  blog_id?: string; // Optional for now to support legacy/mock data
 }
 
 export interface Page {
@@ -19,6 +32,7 @@ export interface Page {
   content: string;
   status: 'published' | 'hidden';
   lastModified: string;
+  blog_id?: string;
 }
 
 export interface Comment {

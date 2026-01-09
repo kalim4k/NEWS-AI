@@ -1,12 +1,14 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Bell, ChevronDown, Zap, User, Settings, LogOut } from 'lucide-react';
 
 interface HeaderProps {
   onNavigate: (view: string) => void;
   onLogout: () => void;
+  userEmail?: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onNavigate, onLogout }) => {
+export const Header: React.FC<HeaderProps> = ({ onNavigate, onLogout, userEmail = "admin@newsai.com" }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -80,12 +82,14 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, onLogout }) => {
               }`}
             >
               <img 
-                src="https://ui-avatars.com/api/?name=Admin+User&background=4f46e5&color=fff&bold=true" 
-                alt="Admin Profile" 
+                src={`https://ui-avatars.com/api/?name=${userEmail}&background=4f46e5&color=fff&bold=true`}
+                alt="Profile" 
                 className="w-8 h-8 md:w-9 md:h-9 rounded-full shadow-sm ring-2 ring-white object-cover" 
               />
               <div className="hidden md:block text-left">
-                <p className={`text-sm font-semibold leading-none ${isProfileOpen ? 'text-indigo-900' : 'text-slate-700'}`}>Admin User</p>
+                <p className={`text-sm font-semibold leading-none ${isProfileOpen ? 'text-indigo-900' : 'text-slate-700'}`}>
+                  {userEmail.split('@')[0]}
+                </p>
               </div>
               <ChevronDown size={14} className={`hidden md:block transition-transform duration-200 ${isProfileOpen ? 'rotate-180 text-indigo-600' : 'text-slate-400'}`} />
             </button>
@@ -94,8 +98,8 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, onLogout }) => {
             {isProfileOpen && (
               <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 animate-in fade-in slide-in-from-top-2 duration-200 origin-top-right">
                 <div className="px-4 py-3 border-b border-gray-50 mb-1">
-                  <p className="text-sm font-bold text-slate-900">Admin User</p>
-                  <p className="text-xs text-slate-500 truncate">admin@newsai.com</p>
+                  <p className="text-sm font-bold text-slate-900">Mon Compte</p>
+                  <p className="text-xs text-slate-500 truncate">{userEmail}</p>
                 </div>
                 
                 <button onClick={() => handleNavigate('profile')} className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 flex items-center space-x-2 transition-colors">
