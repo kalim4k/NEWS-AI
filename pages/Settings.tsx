@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { BlogSettings } from '../types';
-import { Save, Globe, Palette, Monitor, AlertTriangle } from 'lucide-react';
+import { Save, Globe, Palette, Monitor, AlertTriangle, Info } from 'lucide-react';
 
 interface SettingsProps {
   settings: BlogSettings;
@@ -65,7 +65,20 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
                   <div className="text-sm text-slate-600">
                       <p className="font-bold text-slate-800 mb-1">Mode Sous-domaines (Avancé)</p>
                       <p className="mb-2">Activer cette option change les liens de votre blog de <code>monsite.com/?blog=slug</code> vers <code>slug.monsite.com</code>.</p>
-                      <p className="text-xs text-slate-500">Nécessite une configuration DNS Wildcard (*.monsite.com) chez votre hébergeur. Si vos liens ne fonctionnent plus après activation, désactivez cette option.</p>
+                      
+                      {/* Configuration Netlify Instruction Box */}
+                      <div className="mt-3 bg-white p-4 rounded-lg border border-indigo-100 shadow-sm">
+                        <div className="flex items-center mb-2">
+                           <Info size={14} className="text-indigo-600 mr-2" />
+                           <p className="font-bold text-indigo-700 text-xs uppercase tracking-wide">Configuration Netlify Requise</p>
+                        </div>
+                        <p className="text-xs text-slate-500 mb-2">Si vous obtenez une erreur <strong>"Site Not Found"</strong> sur vos sous-domaines :</p>
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 marker:text-indigo-500">
+                            <li>Allez sur <a href="https://app.netlify.com" target="_blank" className="underline hover:text-indigo-600">Netlify</a> &gt; <strong>Domain settings</strong>.</li>
+                            <li>Ajoutez un <strong>Domain alias</strong> : <code>*.votre-domaine.com</code> (ex: <code>*.newsai.fun</code>).</li>
+                            <li>Cela autorisera Netlify à servir votre application sur tous les sous-domaines.</li>
+                        </ol>
+                      </div>
                   </div>
               </div>
 

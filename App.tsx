@@ -74,30 +74,34 @@ const App: React.FC = () => {
     // 0. Initialisation : Vérifier si on est en "Mode Public" (Visiteur) ou "Mode Admin"
     
     // --- NOUVELLE LOGIQUE SOUS-DOMAINE ---
-    const hostname = window.location.hostname; // ex: jean.monsite.com
+    const hostname = window.location.hostname; // ex: jean.newsai.fun
     const parts = hostname.split('.');
     let detectedSlug = null;
 
-    // IMPORTANT: Ignorer les domaines de déploiement par défaut où le sous-domaine est l'app elle-même
-    // ex: my-app.netlify.app -> 'my-app' n'est pas un blog, c'est l'admin.
+    console.log("Debug Hostname:", hostname); // Pour debugger sur Netlify
+
+    // IMPORTANT: Ignorer les domaines de déploiement par défaut
     const isProviderDomain = hostname.includes('netlify.app') || hostname.includes('vercel.app') || hostname.includes('herokuapp.com');
 
     // Cas Localhost (ex: jean.localhost)
     if (hostname.includes('localhost') && parts.length > 1) {
         detectedSlug = parts[0]; 
     } 
-    // Cas Production (ex: jean.newsai.com)
+    // Cas Production (ex: jean.newsai.fun)
+    // newsai.fun -> length 2 -> Pas de slug
+    // jean.newsai.fun -> length 3 -> Slug 'jean'
     else if (!isProviderDomain && parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'app') {
         detectedSlug = parts[0];
     }
 
-    // Support fallback paramètre URL (?blog=slug) pour le dev facile si pas de DNS wildcard
+    // Support fallback paramètre URL (?blog=slug)
     const searchParams = new URLSearchParams(window.location.search);
     const slugFromUrl = searchParams.get('blog');
 
     const finalSlug = detectedSlug || slugFromUrl;
 
     if (finalSlug) {
+      console.log("Mode Public détecté pour le slug:", finalSlug);
       // MODE PUBLIC : On affiche le blog correspondant au slug
       setIsPublicMode(true);
       setPublicSlug(finalSlug);
