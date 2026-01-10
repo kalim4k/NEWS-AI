@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { LayoutDashboard, FileText, Layers, MessageSquare, Settings, ExternalLink, LogOut, LayoutTemplate, X, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { LayoutDashboard, FileText, Layers, MessageSquare, Settings, ExternalLink, LogOut, LayoutTemplate, X, Zap, Copy, Check } from 'lucide-react';
 
 interface SidebarProps {
   currentView: string;
@@ -27,6 +27,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   useSubdomains = true
 }) => {
+  const [copied, setCopied] = useState(false);
+
   const menuItems = [
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
     { id: 'posts', label: 'Articles', icon: FileText },
@@ -74,6 +76,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           displayUrl = `${blogSlug}.${rootDomain}`;
       }
   }
+
+  const handleCopyLink = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (blogSlug) {
+        navigator.clipboard.writeText(publicBlogUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   return (
     <>
@@ -151,7 +162,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex flex-col overflow-hidden w-full">
               <span className="text-sm font-bold text-slate-900 truncate">{userName}</span>
               {blogSlug && (
-                 <span className="text-xs text-indigo-600 font-medium truncate" title={displayUrl}>{displayUrl}</span>
+                 <div className="flex items-center space-x-2 mt-0.5">
+                    <span className="text-xs text-indigo-600 font-medium truncate max-w-[100px]" title={displayUrl}>{displayUrl}</span>
+                    <button 
+                      onClick={handleCopyLink} 
+                      className="text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded-md hover:bg-indigo-50"
+                      title="Copier le lien du blog"
+                    >
+                      {copied ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+                    </button>
+                 </div>
               )}
               {!blogSlug && (
                  <span className="text-xs text-slate-500 truncate" title={userEmail}>{userEmail}</span>
