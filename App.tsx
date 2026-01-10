@@ -12,18 +12,18 @@ import { LayoutEditor } from './pages/LayoutEditor';
 import { PublicBlog } from './pages/PublicBlog';
 import { Profile } from './pages/Profile';
 import { Auth } from './pages/Auth';
-import { Comments } from './pages/Comments'; // Import
+import { Comments } from './pages/Comments'; 
 import { StatData, Post, BlogSettings, Page, UserProfile } from './types';
 import { Loader2, AlertOctagon } from 'lucide-react';
 import { supabase, SUPABASE_URL } from './lib/supabase';
 
-// Helper pour générer une semaine vide (Données réelles à 0 par défaut)
+// Helper pour générer une semaine vide 
 const getEmptyWeekStats = (): StatData[] => {
   const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
   return days.map(d => ({ name: d, views: 0, visitors: 0 }));
 };
 
-const INITIAL_POSTS: Post[] = []; // On commence vide pour charger la DB
+const INITIAL_POSTS: Post[] = []; 
 const INITIAL_PAGES: Page[] = [];
 
 const INITIAL_SETTINGS: BlogSettings = {
@@ -31,7 +31,7 @@ const INITIAL_SETTINGS: BlogSettings = {
   description: "L'actualité de l'IA, décryptée pour vous.",
   themeColor: "#0f172a",
   language: "fr",
-  useSubdomains: false, // Par défaut désactivé pour éviter les erreurs DNS
+  useSubdomains: true, // Activé par défaut selon votre demande
   layout: {
     postsPerPage: 6,
     footerText: "© 2024 NEWS AI Inc. Fait avec passion.",
@@ -62,7 +62,6 @@ const App: React.FC = () => {
   const [pages, setPages] = useState<Page[]>(INITIAL_PAGES);
   const [settings, setSettings] = useState<BlogSettings>(INITIAL_SETTINGS);
   
-  // Real Time Stats State
   const [dashboardStats, setDashboardStats] = useState<StatData[]>(getEmptyWeekStats());
   const [globalStats, setGlobalStats] = useState({ totalViews: 0, totalVisitors: 0, totalArticles: 0 });
 
@@ -71,46 +70,52 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // 0. Initialisation : Vérifier si on est en "Mode Public" (Visiteur) ou "Mode Admin"
+    // 0. Initialisation : Détection du mode (Public via Sous-domaine vs Admin)
     
-    // --- NOUVELLE LOGIQUE SOUS-DOMAINE ---
     const hostname = window.location.hostname; // ex: jean.newsai.fun
-    const parts = hostname.split('.');
     let detectedSlug = null;
 
-    console.log("Debug Hostname:", hostname); // Pour debugger sur Netlify
-
-    // IMPORTANT: Ignorer les domaines de déploiement par défaut
+    // Ignorer les domaines techniques Netlify/Vercel pour éviter les faux positifs
     const isProviderDomain = hostname.includes('netlify.app') || hostname.includes('vercel.app') || hostname.includes('herokuapp.com');
 
-    // Cas Localhost (ex: jean.localhost)
-    if (hostname.includes('localhost') && parts.length > 1) {
-        detectedSlug = parts[0]; 
-    } 
-    // Cas Production (ex: jean.newsai.fun)
-    // newsai.fun -> length 2 -> Pas de slug
-    // jean.newsai.fun -> length 3 -> Slug 'jean'
-    else if (!isProviderDomain && parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'app') {
-        detectedSlug = parts[0];
+    if (!isProviderDomain) {
+        const parts = hostname.split('.');
+        
+        // Cas Localhost (ex: jean.localhost)
+        if (hostname.includes('localhost')) {
+            if (parts.length > 1 && parts[0] !== 'www') {
+                detectedSlug = parts[0];
+            }
+        } 
+        // Cas Production (ex: jean.newsai.fun)
+        // On suppose que le domaine racine a au moins une extension (ex: newsai.fun = 2 parties)
+        // Donc si on a 3 parties ou plus, la première est probablement un sous-domaine
+        else if (parts.length >= 3) {
+            const subdomain = parts[0];
+            const reservedSubdomains = ['www', 'app', 'admin', 'dashboard', 'api'];
+            
+            if (!reservedSubdomains.includes(subdomain)) {
+                detectedSlug = subdomain;
+            }
+        }
     }
 
-    // Support fallback paramètre URL (?blog=slug)
+    // Support fallback (optionnel, pour tests locaux ou liens legacy)
     const searchParams = new URLSearchParams(window.location.search);
     const slugFromUrl = searchParams.get('blog');
 
+    // Priorité absolue au sous-domaine détecté
     const finalSlug = detectedSlug || slugFromUrl;
 
     if (finalSlug) {
-      console.log("Mode Public détecté pour le slug:", finalSlug);
-      // MODE PUBLIC : On affiche le blog correspondant au slug
+      console.log("🔍 Mode Public détecté pour le slug:", finalSlug);
       setIsPublicMode(true);
       setPublicSlug(finalSlug);
       fetchPublicData(finalSlug);
-      // On ne set PAS loading à false ici, on attend le fetch
-      return;
+      return; // On arrête ici, pas besoin de charger la session admin
     }
 
-    // MODE ADMIN : On vérifie l'authentification
+    // Si aucun slug -> MODE ADMIN
     if (SUPABASE_URL.includes('votre-projet')) {
         console.warn("Supabase non configuré. Mode démo local.");
         setLoading(false);
@@ -139,13 +144,10 @@ const App: React.FC = () => {
   }, []);
 
   // --- RECALCUL DES STATS ---
-  // À chaque fois que 'posts' change (chargement initial ou ajout/suppression), on met à jour les stats
   useEffect(() => {
     if (posts.length >= 0) {
       const totalViews = posts.reduce((acc, post) => acc + (post.views || 0), 0);
       const totalArticles = posts.length;
-      // Note: Pour les visiteurs uniques et les courbes historiques, il faudrait une table 'analytics' dédiée.
-      // Pour l'instant, on affiche 0 visiteurs uniques réels (car non trackés) et les totaux calculés.
       setGlobalStats({
         totalViews: totalViews,
         totalArticles: totalArticles,
@@ -156,7 +158,6 @@ const App: React.FC = () => {
 
   // --- FETCHING DATA ---
 
-  // 1. Fetch User Profile (Admin Mode)
   const fetchUserProfile = async (userId: string) => {
     try {
       if (SUPABASE_URL.includes('votre-projet')) return;
@@ -169,7 +170,6 @@ const App: React.FC = () => {
       
       if (data) {
         setUserProfile(data as UserProfile);
-        // Une fois le profil chargé, on charge les données du blog de cet utilisateur
         if (data.blog_id) fetchAdminData(data.blog_id);
       }
     } catch (e) {
@@ -179,7 +179,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 2. Fetch Blog Data for Admin (Filtered by blog_id)
   const fetchAdminData = async (blogId: string) => {
       if (SUPABASE_URL.includes('votre-projet')) return;
 
@@ -194,18 +193,16 @@ const App: React.FC = () => {
       }
   };
 
-  // 3. Fetch Public Blog Data (Visitor Mode)
   const fetchPublicData = async (slug: string) => {
     if (SUPABASE_URL.includes('votre-projet')) {
         setLoading(false);
-        return; // Mock data déjà chargé par défaut
+        return; 
     }
 
     try {
       setLoading(true);
       setBlogNotFound(false);
 
-      // Trouver l'ID du blog via le slug
       const { data: blogData, error: blogError } = await supabase
         .from('blogs')
         .select('id, name')
@@ -214,15 +211,13 @@ const App: React.FC = () => {
 
       if (blogError || !blogData) {
         console.error("Blog introuvable:", slug);
-        setBlogNotFound(true); // Affiche la page 404
+        setBlogNotFound(true);
         setLoading(false);
         return;
       }
 
-      // Mettre à jour le nom du blog dans les settings pour l'affichage
       setSettings(prev => ({ ...prev, name: blogData.name || prev.name }));
 
-      // Charger les posts et pages de ce blog
       const { data: postsData } = await supabase.from('posts').select('*').eq('blog_id', blogData.id).eq('status', 'published').order('date', { ascending: false });
       if (postsData) setPosts(postsData as Post[]);
 
@@ -236,7 +231,6 @@ const App: React.FC = () => {
       setLoading(false);
     }
   };
-
 
   // --- ACTIONS (Admin Mode) ---
 
@@ -267,7 +261,7 @@ const App: React.FC = () => {
   };
 
   const handleEditPost = (post: Post) => { setEditingPost(post); setCurrentView('create-post'); };
-  const handleViewPost = (post: Post) => { setViewingPostId(post.id); setCurrentView('public'); }; // Aperçu interne
+  const handleViewPost = (post: Post) => { setViewingPostId(post.id); setCurrentView('public'); }; 
   
   const handleAddPage = async (pageData: { title: string; slug: string; content: string }) => {
     const newPage: Page = {
@@ -308,7 +302,6 @@ const App: React.FC = () => {
     }
     setSession(null);
     setUserProfile(null);
-    // Rediriger vers l'accueil admin (nettoyer URL)
     window.location.href = window.location.origin;
   };
 
@@ -321,7 +314,6 @@ const App: React.FC = () => {
           setLoading(true);
       }
   };
-
 
   // --- RENDERING ---
 
@@ -345,10 +337,15 @@ const App: React.FC = () => {
              </div>
              <h1 className="text-2xl font-bold text-slate-900 mb-2">Blog Introuvable</h1>
              <p className="text-slate-500 mb-8">
-               Le blog <strong>{publicSlug}</strong> n'existe pas ou a été supprimé.
+               Le blog <strong>{publicSlug}</strong> n'existe pas ou le domaine est mal configuré.
              </p>
-             <a href={window.location.origin} className="block w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-colors">
-               Créer mon propre blog
+             <div className="text-xs bg-gray-100 p-4 rounded text-left mb-6 font-mono text-slate-600">
+                <p>Debug info:</p>
+                <p>Host: {window.location.hostname}</p>
+                <p>Slug détecté: {publicSlug}</p>
+             </div>
+             <a href={window.location.protocol + '//' + window.location.hostname.split('.').slice(-2).join('.')} className="block w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-colors">
+               Retour à l'accueil
              </a>
           </div>
         </div>
@@ -356,7 +353,6 @@ const App: React.FC = () => {
     }
     return (
       <div className="min-h-screen bg-white">
-        {/* On masque le bouton retour admin pour les visiteurs */}
         <PublicBlog 
           settings={settings} 
           posts={posts} 
@@ -374,17 +370,12 @@ const App: React.FC = () => {
     return <Auth onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // Calculate derived stats
-  // CES VARIABLES NE SONT PLUS UTILISÉES DIRECTEMENT, ON UTILISE globalStats
-  
-  // NOUVEAU : Récupérer les catégories uniques et le nom d'utilisateur
   const uniqueCategories = Array.from(new Set(posts.map(p => p.category).filter(Boolean))).sort();
   const currentUserName = userProfile?.username || userProfile?.full_name || session?.user?.email?.split('@')[0] || 'Auteur';
 
   // C. VIEW ADMIN
   const renderAdminContent = () => {
     switch (currentView) {
-      // ON PASSE MAINTENANT dashboardStats (vide/plat) et globalStats (calculé)
       case 'dashboard': return <Dashboard stats={dashboardStats} globalStats={globalStats} />;
       case 'posts': return <Posts posts={posts} onCreatePost={() => navigateTo('create')} onView={handleViewPost} onEdit={handleEditPost} onDelete={handleDeletePost} />;
       case 'create-post': return (
@@ -392,8 +383,8 @@ const App: React.FC = () => {
           initialPost={editingPost} 
           onPublish={handlePublishPost} 
           onCancel={() => navigateTo('posts')}
-          existingCategories={uniqueCategories} // Passer les catégories existantes
-          currentUser={currentUserName} // Passer l'utilisateur actuel
+          existingCategories={uniqueCategories} 
+          currentUser={currentUserName}
         />
       );
       case 'pages': return <Pages pages={pages} onUpdatePage={handleUpdatePage} onAddPage={handleAddPage} onDeletePage={handleDeletePage} />;
@@ -405,7 +396,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Preview Mode inside Admin
   if (currentView === 'public') {
     return (
       <PublicBlog 
@@ -424,7 +414,7 @@ const App: React.FC = () => {
       <Sidebar 
         currentView={currentView === 'create-post' ? 'posts' : currentView} 
         onChangeView={navigateTo} 
-        onViewBlog={() => { /* Handled by href in Sidebar now */ }} 
+        onViewBlog={() => {}} 
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)} 
         userEmail={userProfile?.email || session.user.email}

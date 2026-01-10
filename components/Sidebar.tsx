@@ -12,7 +12,7 @@ interface SidebarProps {
   userName?: string;
   blogSlug?: string;
   onLogout?: () => void;
-  useSubdomains?: boolean; // New prop
+  useSubdomains?: boolean; 
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -25,7 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   userName = "Utilisateur",
   blogSlug,
   onLogout,
-  useSubdomains = false
+  useSubdomains = true
 }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
@@ -38,39 +38,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleItemClick = (id: string) => {
     onChangeView(id);
-    onClose(); // Close sidebar on mobile when item clicked
+    onClose(); 
   };
 
-  // --- LOGIQUE DE GÉNÉRATION D'URL ROBUSTE ---
-  const protocol = window.location.protocol;
+  // --- LOGIQUE GÉNÉRATION URL SOUS-DOMAINE ---
   const hostname = window.location.hostname;
-  const host = window.location.host; // inclut le port
+  const isLocalhost = hostname.includes('localhost');
   
-  // Vérifications de sécurité pour l'environnement
-  const isNetlifySubdomain = hostname.includes('netlify.app');
-  const isVercelSubdomain = hostname.includes('vercel.app');
-  const isIpAddress = /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/.test(hostname);
-  
-  // Les sous-domaines (slug.site.com) ne fonctionnent QUE sur :
-  // 1. Localhost (si configuré)
-  // 2. Un vrai domaine personnalisé (ex: newsai.fun)
-  // Ils NE fonctionnent PAS sur *.netlify.app (limitation technique Netlify Free) ni sur les IP.
-  const supportsSubdomainWildcard = !isNetlifySubdomain && !isVercelSubdomain && !isIpAddress;
+  // On récupère le domaine racine (ex: "newsai.fun") en prenant les 2 dernières parties
+  // Si c'est localhost, on garde localhost
+  let rootDomain = hostname;
+  if (!isLocalhost) {
+      const parts = hostname.split('.');
+      if (parts.length >= 2) {
+          rootDomain = parts.slice(-2).join('.');
+      }
+  }
 
+  // URL par défaut si pas de slug
   let publicBlogUrl = '#';
   let displayUrl = '';
 
   if (blogSlug) {
-    if (useSubdomains && supportsSubdomainWildcard) {
-        // Mode Sous-Domaine (Si activé par l'utilisateur et supporté par l'infra)
-        const rootDomain = host.replace('www.', '');
-        publicBlogUrl = `${protocol}//${blogSlug}.${rootDomain}`;
-        displayUrl = `${blogSlug}.${rootDomain.split(':')[0]}`;
-    } else {
-        // Mode Fallback (Défaut) -> Utilisation de Query Param
-        publicBlogUrl = `${window.location.origin}?blog=${blogSlug}`;
-        displayUrl = `${hostname}/?blog=${blogSlug}`;
-    }
+      // Construction URL: https://slug.rootDomain (ex: https://jean.newsai.fun)
+      const protocol = window.location.protocol;
+      
+      if (isLocalhost) {
+          // En local, on ne peut pas facilement tester les sous-domaines sans config hosts
+          // On garde le paramètre juste pour le dev local si nécessaire
+          publicBlogUrl = `${protocol}//${hostname}?blog=${blogSlug}`;
+          displayUrl = `localhost/${blogSlug}`;
+      } else {
+          // PROD : Sous-domaine strict
+          publicBlogUrl = `${protocol}//${blogSlug}.${rootDomain}`;
+          displayUrl = `${blogSlug}.${rootDomain}`;
+      }
   }
 
   return (
