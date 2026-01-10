@@ -14,7 +14,7 @@ import { Profile } from './pages/Profile';
 import { Auth } from './pages/Auth';
 import { Comments } from './pages/Comments'; 
 import { StatData, Post, BlogSettings, Page, UserProfile } from './types';
-import { Loader2, AlertOctagon } from 'lucide-react';
+import { Loader2, AlertOctagon, HelpCircle } from 'lucide-react';
 import { supabase, SUPABASE_URL } from './lib/supabase';
 
 // Helper pour générer une semaine vide 
@@ -74,24 +74,24 @@ const App: React.FC = () => {
     const hostname = window.location.hostname; // ex: jean.newsai.fun
     let detectedSlug = null;
 
-    // Domaines techniques à ignorer
-    const isProviderDomain = hostname.includes('netlify.app') || hostname.includes('vercel.app');
+    console.log("🔍 Analyse du domaine :", hostname);
 
-    if (!isProviderDomain) {
+    // Domaines techniques à ignorer (Netlify preview, Vercel, localhost simple)
+    const isProviderDomain = hostname.includes('netlify.app') || hostname.includes('vercel.app');
+    
+    // Regex pour détecter une IP (ex: 127.0.0.1)
+    const isIP = /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/.test(hostname);
+
+    if (!isProviderDomain && !isIP) {
         const parts = hostname.split('.');
         
-        // Cas Production (ex: jean.newsai.fun -> ['jean', 'newsai', 'fun'])
-        // Si plus de 2 parties, la première est le sous-domaine
-        // (Sauf si c'est www, app, etc.)
-        if (parts.length >= 3) {
-            const subdomain = parts[0];
-            const reservedSubdomains = ['www', 'app', 'admin', 'dashboard', 'api'];
-            
-            if (!reservedSubdomains.includes(subdomain)) {
-                detectedSlug = subdomain;
-            }
+        // --- LOGIQUE DE DÉTECTION ---
+        // Si on a au moins 3 parties (ex: "slug.domain.com")
+        // ET que la première partie n'est pas "www"
+        if (parts.length >= 3 && parts[0] !== 'www') {
+             detectedSlug = parts[0];
         }
-        // Cas Localhost (ex: jean.localhost)
+        // Cas Localhost avec sous-domaine (ex: "slug.localhost")
         else if (hostname.includes('localhost') && parts.length > 1 && parts[0] !== 'www') {
              detectedSlug = parts[0];
         }
@@ -99,11 +99,13 @@ const App: React.FC = () => {
 
     // SI UN SOUS-DOMAINE EST DÉTECTÉ -> MODE PUBLIC
     if (detectedSlug) {
-      console.log("🔍 Sous-domaine détecté :", detectedSlug);
+      console.log("✅ Sous-domaine détecté :", detectedSlug);
       setIsPublicMode(true);
       setPublicSlug(detectedSlug);
       fetchPublicData(detectedSlug);
       return; 
+    } else {
+      console.log("ℹ️ Mode Dashboard Admin (Pas de sous-domaine)");
     }
 
     // SINON -> MODE ADMIN (Dashboard)
@@ -187,6 +189,12 @@ const App: React.FC = () => {
 
   const fetchPublicData = async (slug: string) => {
     if (SUPABASE_URL.includes('votre-projet')) {
+        // En mode démo public, on simule si le slug est 'demo'
+        if (slug === 'demo') {
+            setLoading(false);
+            return;
+        }
+        setBlogNotFound(true);
         setLoading(false);
         return; 
     }
@@ -328,14 +336,18 @@ const App: React.FC = () => {
                 <AlertOctagon size={32} />
              </div>
              <h1 className="text-2xl font-bold text-slate-900 mb-2">Blog Introuvable</h1>
-             <p className="text-slate-500 mb-8">
-               Le blog <strong>{publicSlug}</strong> n'existe pas ou le domaine est mal configuré.
+             <p className="text-slate-500 mb-6">
+               Nous avons détecté le sous-domaine <strong>"{publicSlug}"</strong>, mais aucun blog ne correspond dans la base de données.
              </p>
-             <div className="text-xs bg-gray-100 p-4 rounded text-left mb-6 font-mono text-slate-600">
-                <p>Debug info:</p>
-                <p>Host: {window.location.hostname}</p>
-                <p>Slug détecté: {publicSlug}</p>
+             
+             {/* Debug Info pour l'utilisateur */}
+             <div className="text-xs bg-slate-50 p-4 rounded-lg border border-slate-100 text-left mb-6 space-y-1">
+                 <p className="font-bold text-slate-700 mb-1 flex items-center"><HelpCircle size={12} className="mr-1"/> Infos de débogage :</p>
+                 <p className="font-mono">Host: {window.location.hostname}</p>
+                 <p className="font-mono">Slug détecté: {publicSlug}</p>
+                 <p className="font-mono text-slate-400">Project: {SUPABASE_URL.substring(0, 15)}...</p>
              </div>
+
              <a href={window.location.protocol + '//' + window.location.hostname.split('.').slice(-2).join('.')} className="block w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-colors">
                Retour à l'accueil
              </a>

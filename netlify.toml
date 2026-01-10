@@ -1,9 +1,0 @@
-[build]
-  publish = "dist" # ou build / public selon ton projet
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-
