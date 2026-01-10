@@ -31,7 +31,7 @@ const INITIAL_SETTINGS: BlogSettings = {
   description: "L'actualité de l'IA, décryptée pour vous.",
   themeColor: "#0f172a",
   language: "fr",
-  useSubdomains: true, // Activé par défaut selon votre demande
+  useSubdomains: true, // Toujours activé maintenant
   layout: {
     postsPerPage: 6,
     footerText: "© 2024 NEWS AI Inc. Fait avec passion.",
@@ -70,27 +70,20 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // 0. Initialisation : Détection du mode (Public via Sous-domaine vs Admin)
-    
+    // 0. Initialisation : Détection UNIQUE via sous-domaine
     const hostname = window.location.hostname; // ex: jean.newsai.fun
     let detectedSlug = null;
 
-    // Ignorer les domaines techniques Netlify/Vercel pour éviter les faux positifs
-    const isProviderDomain = hostname.includes('netlify.app') || hostname.includes('vercel.app') || hostname.includes('herokuapp.com');
+    // Domaines techniques à ignorer
+    const isProviderDomain = hostname.includes('netlify.app') || hostname.includes('vercel.app');
 
     if (!isProviderDomain) {
         const parts = hostname.split('.');
         
-        // Cas Localhost (ex: jean.localhost)
-        if (hostname.includes('localhost')) {
-            if (parts.length > 1 && parts[0] !== 'www') {
-                detectedSlug = parts[0];
-            }
-        } 
-        // Cas Production (ex: jean.newsai.fun)
-        // On suppose que le domaine racine a au moins une extension (ex: newsai.fun = 2 parties)
-        // Donc si on a 3 parties ou plus, la première est probablement un sous-domaine
-        else if (parts.length >= 3) {
+        // Cas Production (ex: jean.newsai.fun -> ['jean', 'newsai', 'fun'])
+        // Si plus de 2 parties, la première est le sous-domaine
+        // (Sauf si c'est www, app, etc.)
+        if (parts.length >= 3) {
             const subdomain = parts[0];
             const reservedSubdomains = ['www', 'app', 'admin', 'dashboard', 'api'];
             
@@ -98,24 +91,23 @@ const App: React.FC = () => {
                 detectedSlug = subdomain;
             }
         }
+        // Cas Localhost (ex: jean.localhost)
+        else if (hostname.includes('localhost') && parts.length > 1 && parts[0] !== 'www') {
+             detectedSlug = parts[0];
+        }
     }
 
-    // Support fallback (optionnel, pour tests locaux ou liens legacy)
-    const searchParams = new URLSearchParams(window.location.search);
-    const slugFromUrl = searchParams.get('blog');
-
-    // Priorité absolue au sous-domaine détecté
-    const finalSlug = detectedSlug || slugFromUrl;
-
-    if (finalSlug) {
-      console.log("🔍 Mode Public détecté pour le slug:", finalSlug);
+    // SI UN SOUS-DOMAINE EST DÉTECTÉ -> MODE PUBLIC
+    if (detectedSlug) {
+      console.log("🔍 Sous-domaine détecté :", detectedSlug);
       setIsPublicMode(true);
-      setPublicSlug(finalSlug);
-      fetchPublicData(finalSlug);
-      return; // On arrête ici, pas besoin de charger la session admin
+      setPublicSlug(detectedSlug);
+      fetchPublicData(detectedSlug);
+      return; 
     }
 
-    // Si aucun slug -> MODE ADMIN
+    // SINON -> MODE ADMIN (Dashboard)
+    
     if (SUPABASE_URL.includes('votre-projet')) {
         console.warn("Supabase non configuré. Mode démo local.");
         setLoading(false);
@@ -326,7 +318,7 @@ const App: React.FC = () => {
     );
   }
 
-  // A. VIEW PUBLIC (VISITOR)
+  // A. VIEW PUBLIC (VISITOR) - Via Sous-domaine
   if (isPublicMode) {
     if (blogNotFound) {
       return (

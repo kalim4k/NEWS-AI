@@ -50,26 +50,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
   let rootDomain = hostname;
   if (!isLocalhost) {
       const parts = hostname.split('.');
+      // Si on est déjà sur un sous-domaine (ex: app.newsai.fun), on prend newsai.fun
       if (parts.length >= 2) {
           rootDomain = parts.slice(-2).join('.');
       }
   }
 
-  // URL par défaut si pas de slug
+  // Construction de l'URL publique
   let publicBlogUrl = '#';
   let displayUrl = '';
 
   if (blogSlug) {
-      // Construction URL: https://slug.rootDomain (ex: https://jean.newsai.fun)
       const protocol = window.location.protocol;
       
       if (isLocalhost) {
-          // En local, on ne peut pas facilement tester les sous-domaines sans config hosts
-          // On garde le paramètre juste pour le dev local si nécessaire
-          publicBlogUrl = `${protocol}//${hostname}?blog=${blogSlug}`;
-          displayUrl = `localhost/${blogSlug}`;
+          // Cas spécifique Localhost : on ne peut pas vraiment simuler un sous-domaine sans config hosts
+          // On affiche juste un lien localhost standard, la détection dans App.tsx s'occupera du reste si le user configure ses hosts
+          publicBlogUrl = `${protocol}//${blogSlug}.localhost:${window.location.port}`;
+          displayUrl = `${blogSlug}.localhost`;
       } else {
-          // PROD : Sous-domaine strict
+          // PROD : Sous-domaine strict (ex: https://monblog.newsai.fun)
           publicBlogUrl = `${protocol}//${blogSlug}.${rootDomain}`;
           displayUrl = `${blogSlug}.${rootDomain}`;
       }
